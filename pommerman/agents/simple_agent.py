@@ -7,7 +7,7 @@ import random
 
 import numpy as np
 
-from . import BaseAgent
+from pommerman.agents import BaseAgent
 from .. import constants
 from .. import utility
 

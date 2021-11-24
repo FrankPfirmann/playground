@@ -10,5 +10,5 @@ class CNNModel:
         self.param = param
 
     def optimize(self, games):
-        print(games)
+        print(games[0][0][0]["board"])
 

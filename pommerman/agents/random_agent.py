@@ -1,5 +1,5 @@
 '''An agent that preforms a random action each step'''
-from . import BaseAgent
+from pommerman.agents.base_agent import BaseAgent
 
 
 class RandomAgent(BaseAgent):
