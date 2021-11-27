@@ -15,10 +15,10 @@ def train(epochs, n_games):
     while epoch_n < epochs:
         # load NN agent instead
         agent_list = [
+            agents.DQNFFAAgent(nn_model),
             agents.RandomAgent(),
             agents.RandomAgent(),
-            agents.RandomAgent(),
-            agents.RandomAgent(),
+            agents.RandomAgent()
         ]
         games = play_games(n_games, agent_list)
         nn_model.optimize(games)
@@ -28,6 +28,6 @@ def train(epochs, n_games):
 # TODO: add parseargs
 
 if __name__ == "__main__":
-    training_epochs = 10
-    games_per_epoch = 5
+    training_epochs = 1
+    games_per_epoch = 3
     train(training_epochs, games_per_epoch)
