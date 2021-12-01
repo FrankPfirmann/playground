@@ -33,6 +33,7 @@ def test_pommerman_dqn():
     episodes_per_iter = 25
     gradient_steps_per_iter = 1000
     batch_size = 64
+    intermediate_test = 5
 
     q = Pommer_Q()
     q_target = Pommer_Q()
@@ -47,6 +48,15 @@ def test_pommerman_dqn():
             batch = data_generator.get_batch_buffer(batch_size)
             algo.train(batch)
         print("------------------------")
+        if i % intermediate_test == intermediate_test-1:
+            print("doing test")
+            algo.set_train(False)
+            policy = algo.get_policy()
+            data_generator.generate(episodes_per_iter, policy)
+            algo.set_train(True)
+
+            print("------------------------")
+
 
 #test_dqn('CartPole-v1')
 test_pommerman_dqn()

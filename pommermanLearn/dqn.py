@@ -21,12 +21,12 @@ max_trans = 100000
 warmup_trans = 500
 eval_every = 500
 eval_episodes = 10
-exploration_noise = 0.5
+exploration_noise = 0.3
 
 
 # inspired by https://github.com/KaleabTessera/DQN-Atari/blob/master/dqn/agent.py
 class DQN(object):
-    def __init__(self, q_network, q_target_network):
+    def __init__(self, q_network, q_target_network, is_train=True):
         self.device = torch.device("cpu")
         torch.manual_seed(123)
         np.random.seed(123)
@@ -36,6 +36,7 @@ class DQN(object):
         self.q_target_network = q_target_network
         self.q_optim = Adam(self.q_network.parameters(), lr=lr_q)
         self.update_target(self.q_target_network, self.q_network, 1.0)
+        self.is_train = is_train
 
     def update_target(self, q_target, q, t):
         for x, y in zip(q_target.parameters(), q.parameters()):
@@ -44,9 +45,18 @@ class DQN(object):
     def get_policy(self):
         def policy(obs):
             q_values = self.q_network(obs)
-            action = q_values.max(1)[1]
+            if self.is_train:
+                if random.random() > exploration_noise:
+                    action = q_values.max(1)[1]
+                else:
+                    action = torch.tensor([random.randint(0, q_values.size(dim=1)-1)])
+            else:
+                action = q_values.max(1)[1]
             return action
         return policy
+
+    def set_train(self, t):
+        self.is_train = t
 
     def update_q(self, obs, act, rwd, nobs, done):
         obs_batch = obs
