@@ -1,6 +1,8 @@
 import random
 import numpy as np
 import torch
+from pommerman.constants import Item
+
 import pommerman
 
 from pommerman import agents
@@ -61,9 +63,21 @@ class DataGeneratorGymDiscrete:
 
 def transform_observation(obs):
         board = obs['board']
-        features = [np.isin(board, 0).astype(np.uint8), np.isin(board, 1).astype(np.uint8), np.isin(board, 2).astype(np.uint8), np.isin(board, 3).astype(np.uint8), np.isin(board, 4).astype(np.uint8),
-                    np.isin(board, 6).astype(np.uint8), np.isin(board, 7).astype(np.uint8), np.isin(board, 8).astype(np.uint8), np.isin(board, 10).astype(np.uint8), np.isin(board, 11).astype(np.uint8),
-                    np.isin(board, 12).astype(np.uint8), np.isin(board, 13).astype(np.uint8)]
+        features = [
+            np.isin(board, Item.Passage.value).astype(np.uint8),
+            np.isin(board, Item.Rigid.value).astype(np.uint8),
+            np.isin(board, Item.Wood.value).astype(np.uint8),
+            np.isin(board, Item.Bomb.value).astype(np.uint8),
+            np.isin(board, Item.Flames.value).astype(np.uint8),
+            np.isin(board, Item.ExtraBomb.value).astype(np.uint8),
+            np.isin(board, Item.IncrRange.value).astype(np.uint8),
+            np.isin(board, Item.Kick.value).astype(np.uint8),
+            np.isin(board, Item.Agent0.value).astype(np.uint8),
+            np.isin(board, Item.Agent1.value).astype(np.uint8),
+            np.isin(board, Item.Agent2.value).astype(np.uint8),
+            np.isin(board, Item.Agent3.value).astype(np.uint8)
+        ]
+
         transformed = np.stack(features, axis=-1)
         transformed = np.moveaxis(transformed, -1, 0) #move channel dimension to front (pytorch expects this)
         return transformed
