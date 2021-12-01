@@ -11,7 +11,7 @@ from logger import Logger
 
 replay_size = 100000
 exploration_noise = 0.5
-
+max_steps = 10
 
 class DataGeneratorGymDiscrete:
     def __init__(self, env):
@@ -73,9 +73,7 @@ def transform_observation(obs):
             np.isin(board, Item.IncrRange.value).astype(np.uint8),
             np.isin(board, Item.Kick.value).astype(np.uint8),
             np.isin(board, Item.Agent0.value).astype(np.uint8),
-            np.isin(board, Item.Agent1.value).astype(np.uint8),
-            np.isin(board, Item.Agent2.value).astype(np.uint8),
-            np.isin(board, Item.Agent3.value).astype(np.uint8)
+            np.isin(board, Item.Agent1.value).astype(np.uint8)
         ]
 
         transformed = np.stack(features, axis=-1)
@@ -97,8 +95,25 @@ class TrainAgent(agents.BaseAgent):
 
 
 class StaticAgent(agents.BaseAgent):
+    def __init__(self, action):
+        super(StaticAgent, self).__init__()
+        self.action = action
+
     def act(self, obs, action_space):
-        return 5
+        return self.action
+
+
+def staying_alive_reward(nobs, agent_id):
+    print(nobs[0]['position'][0])
+    if agent_id in nobs[0]['alive']:
+        return 1.0
+    else:
+        return 0.0
+
+
+def go_right_reward(nobs, obs, agent_num):
+    return nobs[agent_num]['position'][0] - obs[agent_num]['position'][0]
+
 
 class DataGeneratorPommerman:
     def __init__(self):
@@ -125,11 +140,11 @@ class DataGeneratorPommerman:
         # Assume first agent is TrainAgent
         agent_list = [
             TrainAgent(policy),
-            agents.SimpleAgent(),
-            StaticAgent(),
-            StaticAgent(),
+            StaticAgent(2),
+            StaticAgent(5),
+            StaticAgent(5),
         ]
-        env = pommerman.make('PommeFFACompetitionFast-v0', agent_list)
+        env = pommerman.make('OneVsOne-v0', agent_list)
 
         res = np.array([0.0, 0.0, 0.0, 0.0])
         ties = 0.0
@@ -139,21 +154,23 @@ class DataGeneratorPommerman:
             done = False
             ep_rwd = 0.0
             dead_before = False
-            while not done:
+            steps_n = 0
+            while not done and steps_n < max_steps:
                 #env.render()
                 act = env.act(obs)
                 nobs, rwd, done, _ = env.step(act)
-
+                agt_rwd = go_right_reward(nobs, obs, 0)
                 if 10 in nobs[0]['alive']: #if train agent is still alive
-                    self.add_to_buffer(obs[0], act[0], 1.0, nobs[0], False)
-                    ep_rwd += 1.0
+                    self.add_to_buffer(obs[0], act[0], agt_rwd, nobs[0], False)
+                    ep_rwd += agt_rwd
                 else:
                     if not dead_before:
-                        self.add_to_buffer(obs[0], act[0], 0.0, nobs[0], True)
+                        self.add_to_buffer(obs[0], act[0], agt_rwd, nobs[0], True)
                     dead_before = True
 
                 #self.add_to_buffer(obs[0], act[0], rwd[0], nobs[0], done)
                 obs = nobs
+                steps_n += 1
 
             avg_rwd += ep_rwd
             winner = np.where(np.array(rwd) == 1)[0]
