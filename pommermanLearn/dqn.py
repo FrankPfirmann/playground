@@ -78,6 +78,7 @@ class DQN(object):
         self.q_optim.zero_grad()
         loss.backward()
         self.q_optim.step()
+        return loss.item()
 
     def train(self, batch):
         obs_batch, act_batch, rwd_batch, nobs_batch, done_batch = batch
@@ -86,7 +87,8 @@ class DQN(object):
         rwd_batch = torch.FloatTensor(rwd_batch).to(self.device)
         nobs_batch = torch.FloatTensor(nobs_batch).to(self.device)
         done_batch = torch.FloatTensor(done_batch).to(self.device)
-        self.update_q(obs_batch, act_batch, rwd_batch, nobs_batch, done_batch)
+        loss = self.update_q(obs_batch, act_batch, rwd_batch, nobs_batch, done_batch)
         self.update_target(self.q_target_network, self.q_network, tau)
+        return loss
 
 

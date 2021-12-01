@@ -1,11 +1,11 @@
 import gym
 import torch
+from torch.utils.tensorboard import SummaryWriter
 import numpy as np
 
 from models import DQN_Q, Pommer_Q
 from data_generator import DataGeneratorGymDiscrete, DataGeneratorPommerman
 from dqn import DQN
-
 
 def test_dqn(gym_env):
     num_iterations = 100
@@ -39,14 +39,26 @@ def test_pommerman_dqn():
     q_target = Pommer_Q()
     algo = DQN(q, q_target)
     data_generator = DataGeneratorPommerman()
+    writer = SummaryWriter(log_dir="./data/tensorboard")
 
     for i in range(num_iterations):
         print("Iteration: " + str(i))
         policy = algo.get_policy()
-        data_generator.generate(episodes_per_iter, policy)
+
+        res, ties, avg_rwd = data_generator.generate(episodes_per_iter, policy)
+        win_ratio = res[0] / (sum(res)+ties)
+
+        total_loss=0
         for j in range(gradient_steps_per_iter):
             batch = data_generator.get_batch_buffer(batch_size)
-            algo.train(batch)
+            loss=algo.train(batch)
+            total_loss+=loss
+        avg_loss=total_loss/gradient_steps_per_iter
+
+        writer.add_scalar('Avg. Loss/train', avg_loss, i)
+        writer.add_scalar('Avg. Reward/train', avg_rwd, i)
+        writer.add_scalar('Win Ratio/train', win_ratio, i)
+
         print("------------------------")
         if i % intermediate_test == intermediate_test-1:
             print("doing test")

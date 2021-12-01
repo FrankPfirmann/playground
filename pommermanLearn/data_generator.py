@@ -183,3 +183,4 @@ class DataGeneratorPommerman:
         print("Wins: " + str(res) + ", Ties: " + str(ties) + ", Avg. Reward: " + str(avg_rwd))
         self.logger.write(res, ties, avg_rwd)
         env.close()
+        return (res, ties, avg_rwd)
