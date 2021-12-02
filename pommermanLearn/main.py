@@ -1,3 +1,6 @@
+from datetime import datetime
+import os
+
 import gym
 import torch
 from torch.utils.tensorboard import SummaryWriter
@@ -39,7 +42,10 @@ def test_pommerman_dqn():
     q_target = Pommer_Q()
     algo = DQN(q, q_target)
     data_generator = DataGeneratorPommerman()
-    writer = SummaryWriter(log_dir="./data/tensorboard")
+
+    run_name=datetime.now().strftime("%Y%m%dT%H%M%S")
+    log_dir=os.path.join("./data/tensorboard/", run_name)
+    writer = SummaryWriter(log_dir=log_dir)
 
     for i in range(num_iterations):
         print("Iteration: " + str(i))
