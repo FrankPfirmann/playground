@@ -74,6 +74,8 @@ def test_pommerman_dqn():
             algo.set_train(True)
 
             print("------------------------")
+    writer.flush()
+    writer.close()
 
 
 #test_dqn('CartPole-v1')
