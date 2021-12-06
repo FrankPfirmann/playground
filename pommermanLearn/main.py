@@ -5,6 +5,7 @@ import gym
 import torch
 from torch.utils.tensorboard import SummaryWriter
 import numpy as np
+import params as p
 
 from models import DQN_Q, Pommer_Q
 from data_generator import DataGeneratorGymDiscrete, DataGeneratorPommerman
@@ -32,12 +33,6 @@ def test_dqn(gym_env):
             algo.train(batch)
 
 def test_pommerman_dqn():
-    num_iterations = 1000000
-    episodes_per_iter = 25
-    gradient_steps_per_iter = 1000
-    batch_size = 64
-    intermediate_test = 5
-
     q = Pommer_Q()
     q_target = Pommer_Q()
     algo = DQN(q, q_target)
@@ -47,30 +42,30 @@ def test_pommerman_dqn():
     log_dir=os.path.join("./data/tensorboard/", run_name)
     writer = SummaryWriter(log_dir=log_dir)
 
-    for i in range(num_iterations):
+    for i in range(p.num_iterations):
         print("Iteration: " + str(i))
         policy = algo.get_policy()
 
-        res, ties, avg_rwd = data_generator.generate(episodes_per_iter, policy)
+        res, ties, avg_rwd = data_generator.generate(p.episodes_per_iter, policy)
         win_ratio = res[0] / (sum(res)+ties)
 
         total_loss=0
-        for j in range(gradient_steps_per_iter):
-            batch = data_generator.get_batch_buffer(batch_size)
+        for j in range(p.gradient_steps_per_iter):
+            batch = data_generator.get_batch_buffer(p.batch_size)
             loss=algo.train(batch)
             total_loss+=loss
-        avg_loss=total_loss/gradient_steps_per_iter
+        avg_loss=total_loss/p.gradient_steps_per_iter
 
         writer.add_scalar('Avg. Loss/train', avg_loss, i)
         writer.add_scalar('Avg. Reward/train', avg_rwd, i)
         writer.add_scalar('Win Ratio/train', win_ratio, i)
 
         print("------------------------")
-        if i % intermediate_test == intermediate_test-1:
+        if i % p.intermediate_test == p.intermediate_test-1:
             print("doing test")
             algo.set_train(False)
             policy = algo.get_policy()
-            data_generator.generate(episodes_per_iter, policy)
+            data_generator.generate(p.episodes_per_iter, policy)
             algo.set_train(True)
 
             print("------------------------")

@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
+#TODO: express model structure as param
 
 class DQN_Q(nn.Module):
     def __init__(self, obs_size, act_size, hidden_size):

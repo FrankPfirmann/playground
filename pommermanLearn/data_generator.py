@@ -2,16 +2,12 @@ import random
 import numpy as np
 import torch
 from pommerman.constants import Item
-
+import params as p
 import pommerman
 
 from pommerman import agents
 from logger import Logger
 
-
-replay_size = 100000
-exploration_noise = 0.5
-max_steps = 10
 
 class DataGeneratorGymDiscrete:
     def __init__(self, env):
@@ -26,11 +22,11 @@ class DataGeneratorGymDiscrete:
         self.idx = 0
 
     def add_to_buffer(self, obs, act, rwd, nobs, done):
-        if len(self.buffer) < replay_size:
+        if len(self.buffer) < p.replay_size:
             self.buffer.append([obs, act, [rwd], nobs, [done]])
         else:
             self.buffer[self.idx] = [obs, act, [rwd], nobs, [done]]
-        self.idx = (self.idx + 1) % replay_size
+        self.idx = (self.idx + 1) % p.replay_size
 
     def get_batch_buffer(self, size):
         batch = list(zip(*random.sample(self.buffer, size)))
@@ -104,7 +100,6 @@ class StaticAgent(agents.BaseAgent):
 
 
 def staying_alive_reward(nobs, agent_id):
-    print(nobs[0]['position'][0])
     if agent_id in nobs[0]['alive']:
         return 1.0
     else:
@@ -126,11 +121,11 @@ class DataGeneratorPommerman:
         self.logger = Logger('log')
 
     def add_to_buffer(self, obs, act, rwd, nobs, done):
-        if len(self.buffer) < replay_size:
+        if len(self.buffer) < p.replay_size:
             self.buffer.append([transform_observation(obs), act, [rwd], transform_observation(nobs), [done]])
         else:
             self.buffer[self.idx] = [transform_observation(obs), act, [rwd], transform_observation(nobs), [done]]
-        self.idx = (self.idx + 1) % replay_size
+        self.idx = (self.idx + 1) % p.replay_size
 
     def get_batch_buffer(self, size):
         batch = list(zip(*random.sample(self.buffer, size)))
@@ -140,13 +135,11 @@ class DataGeneratorPommerman:
         # Assume first agent is TrainAgent
         agent_list = [
             TrainAgent(policy),
-            StaticAgent(2),
-            StaticAgent(5),
-            StaticAgent(5),
+            StaticAgent(2)
         ]
         env = pommerman.make('OneVsOne-v0', agent_list)
 
-        res = np.array([0.0, 0.0, 0.0, 0.0])
+        res = np.array([0.0, 0.0])
         ties = 0.0
         avg_rwd = 0.0
         for i_episode in range(episodes):
@@ -155,11 +148,11 @@ class DataGeneratorPommerman:
             ep_rwd = 0.0
             dead_before = False
             steps_n = 0
-            while not done and steps_n < max_steps:
+            while not done and steps_n < p.max_steps:
                 #env.render()
                 act = env.act(obs)
                 nobs, rwd, done, _ = env.step(act)
-                agt_rwd = go_right_reward(nobs, obs, 0)
+                agt_rwd = staying_alive_reward(nobs, 10)
                 if 10 in nobs[0]['alive']: #if train agent is still alive
                     self.add_to_buffer(obs[0], act[0], agt_rwd, nobs[0], False)
                     ep_rwd += agt_rwd
