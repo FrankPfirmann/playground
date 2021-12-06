@@ -23,19 +23,19 @@ class Pommer_Q(nn.Module):
         super(Pommer_Q, self).__init__()
 
         self.conv = nn.Sequential(
-            nn.Conv2d(in_channels=10, out_channels=32, kernel_size=(2, 2), stride=(1, 1)),
+            nn.Conv2d(in_channels=10, out_channels=32, kernel_size=(3, 3), stride=(1, 1)),
             nn.MaxPool2d((2,2),stride=2),
-            nn.Conv2d(in_channels=32, out_channels=256, kernel_size=(2, 2), stride=(1, 1)),
-            nn.MaxPool2d((2,2),stride=2),
+            # nn.Conv2d(in_channels=32, out_channels=256, kernel_size=(2, 2), stride=(1, 1)),
+            # nn.MaxPool2d((2,2),stride=2),
             nn.Flatten()
         )
 
         self.linear = nn.Sequential(
-            nn.Linear(in_features=256 , out_features=128),
+            nn.Linear(in_features=288 , out_features=32),
             nn.ReLU(),
-            nn.Linear(in_features=128, out_features=64),
-            nn.ReLU(),
-            nn.Linear(in_features=64, out_features=6)
+            nn.Linear(in_features=32, out_features=6),
+            # nn.ReLU(),
+            # nn.Linear(in_features=64, out_features=6)
         )
 
 
