@@ -1,13 +1,16 @@
-import random
-import numpy as np
-import torch
-from pommerman.constants import Item
-import params as p
-import pommerman
-
-from pommerman import agents
 from logger import Logger
+import random
 
+import numpy as np
+import pommerman
+from pommerman.constants import Item
+import torch
+
+import params as p
+from util.data import transform_observation
+from util.rewards import staying_alive_reward
+from agents.static_agent import StaticAgent
+from agents.train_agent import TrainAgent
 
 class DataGeneratorGymDiscrete:
     def __init__(self, env):
@@ -55,60 +58,6 @@ class DataGeneratorGymDiscrete:
             avg_rwd += ep_rwd
         avg_rwd /= episodes
         print("Reward " + str(avg_rwd))
-
-
-def transform_observation(obs):
-        board = obs['board']
-        features = [
-            np.isin(board, Item.Passage.value).astype(np.uint8),
-            np.isin(board, Item.Rigid.value).astype(np.uint8),
-            np.isin(board, Item.Wood.value).astype(np.uint8),
-            np.isin(board, Item.Bomb.value).astype(np.uint8),
-            np.isin(board, Item.Flames.value).astype(np.uint8),
-            np.isin(board, Item.ExtraBomb.value).astype(np.uint8),
-            np.isin(board, Item.IncrRange.value).astype(np.uint8),
-            np.isin(board, Item.Kick.value).astype(np.uint8),
-            np.isin(board, Item.Agent0.value).astype(np.uint8),
-            np.isin(board, Item.Agent1.value).astype(np.uint8)
-        ]
-
-        transformed = np.stack(features, axis=-1)
-        transformed = np.moveaxis(transformed, -1, 0) #move channel dimension to front (pytorch expects this)
-        return transformed
-
-
-class TrainAgent(agents.BaseAgent):
-    def __init__(self, policy):
-        super(TrainAgent, self).__init__()
-        self.policy = policy
-        self.device = torch.device("cpu")
-
-    def act(self, obs, action_space):
-        obs = transform_observation(obs)
-        obs = torch.FloatTensor(obs).to(self.device).unsqueeze(0)
-        act = self.policy(obs)
-        return act.detach().numpy()[0]
-
-
-class StaticAgent(agents.BaseAgent):
-    def __init__(self, action):
-        super(StaticAgent, self).__init__()
-        self.action = action
-
-    def act(self, obs, action_space):
-        return self.action
-
-
-def staying_alive_reward(nobs, agent_id):
-    if agent_id in nobs[0]['alive']:
-        return 1.0
-    else:
-        return 0.0
-
-
-def go_right_reward(nobs, obs, agent_num):
-    return nobs[agent_num]['position'][0] - obs[agent_num]['position'][0]
-
 
 class DataGeneratorPommerman:
     def __init__(self):
