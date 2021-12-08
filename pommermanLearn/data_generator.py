@@ -3,13 +3,14 @@ import random
 
 import numpy as np
 import pommerman
-from pommerman import agents
 from pommerman.constants import Item
 import torch
 
 import params as p
 from util.data import transform_observation
 from util.rewards import staying_alive_reward
+from agents.static_agent import StaticAgent
+from agents.train_agent import TrainAgent
 
 class DataGeneratorGymDiscrete:
     def __init__(self, env):
@@ -57,27 +58,6 @@ class DataGeneratorGymDiscrete:
             avg_rwd += ep_rwd
         avg_rwd /= episodes
         print("Reward " + str(avg_rwd))
-
-class TrainAgent(agents.BaseAgent):
-    def __init__(self, policy):
-        super(TrainAgent, self).__init__()
-        self.policy = policy
-        self.device = torch.device("cpu")
-
-    def act(self, obs, action_space):
-        obs = transform_observation(obs)
-        obs = torch.FloatTensor(obs).to(self.device).unsqueeze(0)
-        act = self.policy(obs)
-        return act.detach().numpy()[0]
-
-
-class StaticAgent(agents.BaseAgent):
-    def __init__(self, action):
-        super(StaticAgent, self).__init__()
-        self.action = action
-
-    def act(self, obs, action_space):
-        return self.action
 
 class DataGeneratorPommerman:
     def __init__(self):
