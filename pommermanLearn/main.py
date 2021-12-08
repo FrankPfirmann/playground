@@ -1,6 +1,6 @@
 from datetime import datetime
 import os
-
+import sys
 import gym
 import torch
 from torch.utils.tensorboard import SummaryWriter
@@ -65,6 +65,11 @@ def test_pommerman_dqn():
             print("doing test")
             algo.set_train(False)
             policy = algo.get_policy()
+            
+            model_save_path = log_dir + "/" + str(i)
+            torch.save(algo.q_network.state_dict(), model_save_path)
+            print("Saved model to : " + model_save_path)
+
             data_generator.generate(p.episodes_per_iter, policy)
             algo.set_train(True)
 
