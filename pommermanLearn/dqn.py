@@ -5,6 +5,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import params as p
+from util.data import transform_observation
+from action_prune import get_filtered_actions
 
 from torch.optim import Adam
 
@@ -29,15 +31,29 @@ class DQN(object):
             x.data.copy_(x.data * (1.0 - t) + y.data * t)
 
     def get_policy(self):
-        def policy(obs):
-            q_values = self.q_network(obs)
+        def policy(obs): 
+            # get valid actions according to action filter and transform to be able to filter tensor   
+            valid_actions = get_filtered_actions(obs)
+            valid_actions_transformed = []
+            for i in range(6):
+                valid_actions_transformed += [1] if i in valid_actions else [float("NaN")]
+            valid_actions_transformed = torch.FloatTensor(valid_actions_transformed).to(torch.device("cpu")).unsqueeze(0)
+
+            obs = transform_observation(obs)
+            obs = torch.FloatTensor(obs).to(self.device).unsqueeze(0)
+
+            if len(valid_actions) != 0:
+                q_values = self.q_network(obs)*valid_actions_transformed
+            else:
+                q_values = self.q_network(obs)
+            
             if self.is_train:
                 if random.random() > p.exploration_noise:
-                    action = q_values.max(1)[1]
+                    action = torch.nan_to_num(q_values, nan=-float('inf')).max(1)[1]
                 else:
-                    action = torch.tensor([random.randint(0, q_values.size(dim=1)-1)])
+                    action = torch.tensor([random.choice(valid_actions)])
             else:
-                action = q_values.max(1)[1]
+                action = torch.nan_to_num(q_values, nan=-float('inf')).max(1)[1]
             return action
         return policy
 
