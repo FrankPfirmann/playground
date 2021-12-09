@@ -5,6 +5,7 @@ episodes_per_iter = 25
 gradient_steps_per_iter = 1000
 batch_size = 64
 intermediate_test = 5
+render_tests = False
 
 #dqn.py
 

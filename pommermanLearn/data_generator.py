@@ -80,11 +80,11 @@ class DataGeneratorPommerman:
         batch = list(zip(*random.sample(self.buffer, size)))
         return np.array(batch[0]), np.array(batch[1]), np.array(batch[2]), np.array(batch[3]), np.array(batch[4])
 
-    def generate(self, episodes, policy):
+    def generate(self, episodes, policy, render=False):
         # Assume first agent is TrainAgent
         agent_list = [
             TrainAgent(policy),
-            StaticAgent(2)
+            StaticAgent(0)
         ]
         env = pommerman.make('OneVsOne-v0', agent_list)
 
@@ -98,7 +98,8 @@ class DataGeneratorPommerman:
             dead_before = False
             steps_n = 0
             while not done and steps_n < p.max_steps:
-                #env.render()
+                if render and i_episode == 0:
+                    env.render()
                 act = env.act(obs)
                 nobs, rwd, done, _ = env.step(act)
                 agt_rwd = staying_alive_reward(nobs, 10)

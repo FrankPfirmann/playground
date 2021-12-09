@@ -59,7 +59,6 @@ def test_pommerman_dqn():
         writer.add_scalar('Avg. Loss/train', avg_loss, i)
         writer.add_scalar('Avg. Reward/train', avg_rwd, i)
         writer.add_scalar('Win Ratio/train', win_ratio, i)
-
         print("------------------------")
         if i % p.intermediate_test == p.intermediate_test-1:
             print("doing test")
@@ -69,12 +68,10 @@ def test_pommerman_dqn():
             model_save_path = log_dir + "/" + str(i)
             torch.save(algo.q_network.state_dict(), model_save_path)
             print("Saved model to : " + model_save_path)
-
-            data_generator.generate(p.episodes_per_iter, policy)
+            data_generator.generate(p.episodes_per_iter, policy, render=p.render_tests)
             algo.set_train(True)
 
             print("------------------------")
-    writer.flush()
     writer.close()
 
 
