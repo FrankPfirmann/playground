@@ -14,9 +14,6 @@ from torch.optim import Adam
 class DQN(object):
     def __init__(self, q_network, q_target_network, is_train=True):
         self.device = torch.device("cpu")
-        torch.manual_seed(123)
-        np.random.seed(123)
-
         # Define q and q_target
         self.q_network = q_network
         self.q_target_network = q_target_network
@@ -32,10 +29,10 @@ class DQN(object):
         def policy(obs):
             q_values = self.q_network(obs)
             if self.is_train:
-                if random.random() > p.exploration_noise:
+                if np.random.random() > p.exploration_noise:
                     action = q_values.max(1)[1]
                 else:
-                    action = torch.tensor([random.randint(0, q_values.size(dim=1)-1)])
+                    action = torch.tensor([np.random.randint(0, q_values.size(dim=1))])
             else:
                 action = q_values.max(1)[1]
             return action

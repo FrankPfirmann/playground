@@ -1,3 +1,4 @@
+import random
 from datetime import datetime
 import os
 import sys
@@ -33,8 +34,12 @@ def test_dqn(gym_env):
             algo.train(batch)
 
 def test_pommerman_dqn():
-    q = Pommer_Q()
-    q_target = Pommer_Q()
+    torch.manual_seed(p.seed)
+    np.random.seed(p.seed)
+    random.seed(p.seed)
+    q = Pommer_Q(p.board_size*2+1)
+    torch.manual_seed(p.seed)
+    q_target = Pommer_Q(p.board_size*2+1)
     algo = DQN(q, q_target)
     data_generator = DataGeneratorPommerman()
 

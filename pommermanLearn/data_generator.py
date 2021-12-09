@@ -8,7 +8,7 @@ import torch
 
 import params as p
 from util.data import transform_observation
-from util.rewards import staying_alive_reward
+from util.rewards import staying_alive_reward,go_down_right_reward
 from agents.static_agent import StaticAgent
 from agents.train_agent import TrainAgent
 
@@ -86,9 +86,10 @@ class DataGeneratorPommerman:
             TrainAgent(policy),
             StaticAgent(0)
         ]
-        env = pommerman.make('OneVsOne-v0', agent_list)
+        env = pommerman.make('custom-v0', agent_list)
 
         res = np.array([0.0, 0.0])
+        act_counts = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         ties = 0.0
         avg_rwd = 0.0
         for i_episode in range(episodes):
@@ -97,12 +98,18 @@ class DataGeneratorPommerman:
             ep_rwd = 0.0
             dead_before = False
             steps_n = 0
+            # high pos for down right reward
+            high_pos=(0,0)
             while not done and steps_n < p.max_steps:
                 if render and i_episode == 0:
                     env.render()
                 act = env.act(obs)
+                act_counts[int(act[0])] += 1
                 nobs, rwd, done, _ = env.step(act)
-                agt_rwd = staying_alive_reward(nobs, 10)
+                if p.reward_func == "DownRight":
+                    agt_rwd, high_pos = go_down_right_reward(nobs, high_pos, 0, act)
+                else:
+                    agt_rwd = staying_alive_reward(nobs, 10)
                 if 10 in nobs[0]['alive']: #if train agent is still alive
                     self.add_to_buffer(obs[0], act[0], agt_rwd, nobs[0], False)
                     ep_rwd += agt_rwd
@@ -124,6 +131,7 @@ class DataGeneratorPommerman:
 
         avg_rwd /= episodes
         print("Wins: " + str(res) + ", Ties: " + str(ties) + ", Avg. Reward: " + str(avg_rwd))
+        print(act_counts)
         self.logger.write(res, ties, avg_rwd)
         env.close()
         return (res, ties, avg_rwd)
