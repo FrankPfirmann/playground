@@ -14,15 +14,27 @@ def staying_alive_reward(nobs, agent_id):
     else:
         return 0.0
 
-def go_right_reward(nobs, obs, agent_num):
+
+def go_down_right_reward(nobs, high_pos, agent_num, act):
     """
-    Return a reward for going to the right side of the board
+    Return a reward for going to the low or right side of the board
 
     :param nobs: The current observation
-    :param obs: The last observation
-    :param agent_num: The id of the agent to check
+    :param high_pos: Tuple of lowest and most-right position
+    :param agent_num: The id of the agent to check (0-3)
 
-    :return: The reward for going right
+    :return: The reward for going down or right
     """
-    return nobs[agent_num]['position'][0] - obs[agent_num]['position'][0]
+
+    # only give rewards if a new highest point is reached
+    bomb_bonus = 0
+    if act[agent_num] == 5:
+        bomb_bonus = 0.00
+    if nobs[agent_num]['position'][0] > high_pos[0]:
+        return 1 + bomb_bonus, (nobs[agent_num]['position'][0], high_pos[1])
+
+    elif nobs[agent_num]['position'][1] > high_pos[1]:
+        return 1 + bomb_bonus, (high_pos[0], nobs[agent_num]['position'][1])
+    else:
+        return 0 + bomb_bonus, high_pos
 
