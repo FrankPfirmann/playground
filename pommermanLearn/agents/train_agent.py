@@ -1,7 +1,6 @@
 
 import torch
 from pommerman import agents
-from util.data import transform_observation
 
 class TrainAgent(agents.BaseAgent):
     """
@@ -19,7 +18,5 @@ class TrainAgent(agents.BaseAgent):
         self.device = torch.device("cpu")
 
     def act(self, obs, action_space):
-        obs = transform_observation(obs)
-        obs = torch.FloatTensor(obs).to(self.device).unsqueeze(0)
         act = self.policy(obs)
         return act.detach().numpy()[0]
