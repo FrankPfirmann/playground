@@ -6,6 +6,7 @@ gradient_steps_per_iter = 1000
 batch_size = 64
 intermediate_test = 5
 render_tests = False
+board_size=8
 
 #dqn.py
 
@@ -27,3 +28,4 @@ exploration_noise = 0.1
 
 replay_size = 1000000
 max_steps = 100
+reward_func = None

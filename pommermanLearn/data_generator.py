@@ -86,7 +86,7 @@ class DataGeneratorPommerman:
             TrainAgent(policy),
             StaticAgent(0)
         ]
-        env = pommerman.make('custom-v0', agent_list)
+        env = pommerman.make('OneVsOne-v0', agent_list)
 
         res = np.array([0.0, 0.0])
         act_counts = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
