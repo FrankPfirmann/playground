@@ -133,7 +133,7 @@ class DataGeneratorPommerman:
 
         avg_rwd /= episodes
         avg_steps /= episodes
-        print("Wins: " + str(res) + ", Ties: " + str(ties) + ", Avg. Reward: " + str(avg_rwd) + ", Avg. Game Length: "+ str(avg_steps))
+        print(f"Wins: {res}, Ties: {ties}, Avg. Reward: {avg_rwd}, Avg. Steps: {avg_steps}")
         print(act_counts)
         self.logger.write(res, ties, avg_rwd)
         env.close()

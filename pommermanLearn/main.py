@@ -65,7 +65,7 @@ def test_pommerman_dqn():
         writer.add_scalar('Avg. Loss/train', avg_loss, i)
         writer.add_scalar('Avg. Reward/train', avg_rwd, i)
         writer.add_scalar('Win Ratio/train', win_ratio, i)
-        writer.add_scalar('Avg. Game Length/train', avg_steps, i)
+        writer.add_scalar('Avg. Steps/train', avg_steps, i)
         writer.add_scalars('Normalized #Actions/train', {
             '#Stop': act_counts[0],
             '#Up': act_counts[1],
