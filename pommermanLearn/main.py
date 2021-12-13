@@ -7,6 +7,7 @@ import torch
 from torch.utils.tensorboard import SummaryWriter
 import numpy as np
 import params as p
+from pommerman.constants import Action
 
 from models import DQN_Q, Pommer_Q
 from data_generator import DataGeneratorGymDiscrete, DataGeneratorPommerman
@@ -67,12 +68,12 @@ def test_pommerman_dqn():
         writer.add_scalar('Win Ratio/train', win_ratio, i)
         writer.add_scalar('Avg. Steps/train', avg_steps, i)
         writer.add_scalars('Normalized #Actions/train', {
-            '#Stop': act_counts[0],
-            '#Up': act_counts[1],
-            '#Down': act_counts[2],
-            '#Left': act_counts[3],
-            '#Right': act_counts[4],
-            '#Bomb': act_counts[5]
+            '#Stop': act_counts[Action.Stop.value],
+            '#Up': act_counts[Action.Up.value],
+            '#Down': act_counts[Action.Down.value],
+            '#Left': act_counts[Action.Left.value],
+            '#Right': act_counts[Action.Right.value],
+            '#Bomb': act_counts[Action.Bomb.value]
         }, i)
         print("------------------------")
         if i % p.intermediate_test == p.intermediate_test-1:
