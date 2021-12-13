@@ -86,6 +86,7 @@ class DataGeneratorPommerman:
             TrainAgent(policy),
             StaticAgent(0)
         ]
+        agent_id=10 # ID of training agent
         env = pommerman.make('OneVsOne-v0', agent_list)
 
         res = np.array([0.0, 0.0])
@@ -110,8 +111,8 @@ class DataGeneratorPommerman:
                 if p.reward_func == "DownRight":
                     agt_rwd, high_pos = go_down_right_reward(nobs, high_pos, 0, act)
                 else:
-                    agt_rwd = staying_alive_reward(nobs, 10)
-                if 10 in nobs[0]['alive']: #if train agent is still alive
+                    agt_rwd = staying_alive_reward(nobs, agent_id)
+                if agent_id in nobs[0]['alive']: #if train agent is still alive
                     self.add_to_buffer(obs[0], act[0], agt_rwd, nobs[0], False)
                     ep_rwd += agt_rwd
                 else:
