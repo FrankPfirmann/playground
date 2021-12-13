@@ -92,6 +92,7 @@ class DataGeneratorPommerman:
         act_counts = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         ties = 0.0
         avg_rwd = 0.0
+        avg_steps=0.0
         for i_episode in range(episodes):
             obs = env.reset()
             done = False
@@ -123,6 +124,7 @@ class DataGeneratorPommerman:
                 steps_n += 1
 
             avg_rwd += ep_rwd
+            avg_steps+=steps_n
             winner = np.where(np.array(rwd) == 1)[0]
             if len(winner) == 0:
                 ties += 1
@@ -130,8 +132,9 @@ class DataGeneratorPommerman:
                 res[winner] += 1
 
         avg_rwd /= episodes
-        print("Wins: " + str(res) + ", Ties: " + str(ties) + ", Avg. Reward: " + str(avg_rwd))
+        avg_steps /= episodes
+        print("Wins: " + str(res) + ", Ties: " + str(ties) + ", Avg. Reward: " + str(avg_rwd) + ", Avg. Game Length: "+ str(avg_steps))
         print(act_counts)
         self.logger.write(res, ties, avg_rwd)
         env.close()
-        return (res, ties, avg_rwd, act_counts)
+        return (res, ties, avg_rwd, act_counts, avg_steps)

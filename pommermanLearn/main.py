@@ -51,7 +51,7 @@ def test_pommerman_dqn():
         print("Iteration: " + str(i))
         policy = algo.get_policy()
 
-        res, ties, avg_rwd, act_counts = data_generator.generate(p.episodes_per_iter, policy)
+        res, ties, avg_rwd, act_counts, avg_steps = data_generator.generate(p.episodes_per_iter, policy)
         act_counts=[act/sum(act_counts) for act in act_counts] # Normalize
         win_ratio = res[0] / (sum(res)+ties)
 
@@ -65,6 +65,7 @@ def test_pommerman_dqn():
         writer.add_scalar('Avg. Loss/train', avg_loss, i)
         writer.add_scalar('Avg. Reward/train', avg_rwd, i)
         writer.add_scalar('Win Ratio/train', win_ratio, i)
+        writer.add_scalar('Avg. Game Length/train', avg_steps, i)
         writer.add_scalars('Normalized #Actions/train', {
             '#Stop': act_counts[0],
             '#Up': act_counts[1],
