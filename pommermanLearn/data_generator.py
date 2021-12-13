@@ -134,4 +134,4 @@ class DataGeneratorPommerman:
         print(act_counts)
         self.logger.write(res, ties, avg_rwd)
         env.close()
-        return (res, ties, avg_rwd)
+        return (res, ties, avg_rwd, act_counts)
