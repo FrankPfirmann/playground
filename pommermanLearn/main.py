@@ -52,7 +52,7 @@ def test_pommerman_dqn():
         print("Iteration: " + str(i))
         policy = algo.get_policy()
 
-        res, ties, avg_rwd, act_counts, avg_steps = data_generator.generate(p.episodes_per_iter, policy)
+        res, ties, avg_rwd, act_counts, avg_steps = data_generator.generate(p.episodes_per_iter, policy, q.get_transformer())
         act_counts=[act/sum(act_counts) for act in act_counts] # Normalize
         win_ratio = res[0] / (sum(res)+ties)
 
@@ -84,7 +84,7 @@ def test_pommerman_dqn():
             model_save_path = log_dir + "/" + str(i)
             torch.save(algo.q_network.state_dict(), model_save_path)
             print("Saved model to : " + model_save_path)
-            data_generator.generate(p.episodes_per_iter, policy, render=p.render_tests)
+            data_generator.generate(p.episodes_per_iter, policy, q.get_transformer(), render=p.render_tests)
             algo.set_train(True)
 
             print("------------------------")

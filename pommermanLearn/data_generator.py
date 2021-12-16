@@ -1,5 +1,6 @@
 from logger import Logger
 import random
+from typing import Callable
 
 import numpy as np
 import pommerman
@@ -7,7 +8,6 @@ from pommerman.constants import Item
 import torch
 
 import params as p
-from util.data import transform_observation
 from util.rewards import staying_alive_reward,go_down_right_reward
 from agents.static_agent import StaticAgent
 from agents.train_agent import TrainAgent
@@ -71,16 +71,31 @@ class DataGeneratorPommerman:
 
     def add_to_buffer(self, obs, act, rwd, nobs, done):
         if len(self.buffer) < p.replay_size:
-            self.buffer.append([transform_observation(obs), act, [rwd], transform_observation(nobs), [done]])
+            self.buffer.append([obs, act, [rwd], nobs, [done]])
         else:
-            self.buffer[self.idx] = [transform_observation(obs), act, [rwd], transform_observation(nobs), [done]]
+            self.buffer[self.idx] = [obs, act, [rwd], nobs, [done]]
         self.idx = (self.idx + 1) % p.replay_size
 
     def get_batch_buffer(self, size):
         batch = list(zip(*random.sample(self.buffer, size)))
         return np.array(batch[0]), np.array(batch[1]), np.array(batch[2]), np.array(batch[3]), np.array(batch[4])
 
-    def generate(self, episodes, policy, render=False):
+    def generate(self, episodes: int, policy: Callable, transformer: Callable, render: bool=False) -> tuple:
+        """
+        Generate ``episodes`` samples acting by ``policy`` and saving
+        observations transformed with ``transformer``.
+
+        :param episodes: The number of episodes to generate
+        :param policy: A callable policy to use for action selection
+        :param transformer: A callable transformer to use for input
+            transformation
+        :param render: If ``True`` the environment will be rendered in a
+            window, otherwise not.
+
+        :return: A tuple containing the results of generation in the
+            following order: list of wins, ties, average reward, action
+            counts, average steps
+        """
         # Assume first agent is TrainAgent
         agent_list = [
             TrainAgent(policy),
@@ -113,11 +128,11 @@ class DataGeneratorPommerman:
                 else:
                     agt_rwd = staying_alive_reward(nobs, agent_id)
                 if agent_id in nobs[0]['alive']: #if train agent is still alive
-                    self.add_to_buffer(obs[0], act[0], agt_rwd, nobs[0], False)
+                    self.add_to_buffer(transformer(obs[0]), act[0], agt_rwd, transformer(nobs[0]), False)
                     ep_rwd += agt_rwd
                 else:
                     if not dead_before:
-                        self.add_to_buffer(obs[0], act[0], agt_rwd, nobs[0], True)
+                        self.add_to_buffer(transformer(obs[0]), act[0], agt_rwd, transformer(nobs[0]), True)
                     dead_before = True
 
                 #self.add_to_buffer(obs[0], act[0], rwd[0], nobs[0], done)
@@ -138,4 +153,5 @@ class DataGeneratorPommerman:
         print(act_counts)
         self.logger.write(res, ties, avg_rwd)
         env.close()
+        # TODO: Change the return type to something more readable outside the function
         return (res, ties, avg_rwd, act_counts, avg_steps)

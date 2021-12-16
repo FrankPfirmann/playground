@@ -1,8 +1,13 @@
+import logging
+from typing import Callable
+
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 #TODO: express model structure as param
+
+from util.data import transform_observation
 
 class DQN_Q(nn.Module):
     def __init__(self, obs_size, act_size, hidden_size):
@@ -55,3 +60,13 @@ class Pommer_Q(nn.Module):
         x = self.conv(obs).squeeze()
         x = self.linear(x).unsqueeze(0)
         return x
+
+    def get_transformer(self) -> Callable:
+        """
+        Return a callable to transform a single observation from the
+        Pommerman environment to an input format supported by the model.
+        """
+        def transformer(obs: dict) -> np.array:
+            return transform_observation(obs)
+
+        return transformer

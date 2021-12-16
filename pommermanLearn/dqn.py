@@ -5,7 +5,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import params as p
-from util.data import transform_observation
 from action_prune import get_filtered_actions
 
 from torch.optim import Adam
@@ -36,7 +35,7 @@ class DQN(object):
                 valid_actions_transformed += [1] if i in valid_actions else [float("NaN")]
             valid_actions_transformed = torch.FloatTensor(valid_actions_transformed).to(torch.device("cpu")).unsqueeze(0)
 
-            obs = transform_observation(obs)
+            obs = self.q_network.get_transformer()(obs)
             obs = torch.FloatTensor(obs).to(self.device).unsqueeze(0)
 
             if len(valid_actions) != 0:
