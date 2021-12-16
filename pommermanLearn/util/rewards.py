@@ -1,3 +1,4 @@
+import numpy as np
 
 def staying_alive_reward(nobs, agent_id):
     """
@@ -37,4 +38,18 @@ def go_down_right_reward(nobs, high_pos, agent_num, act):
         return 1 + bomb_bonus, (high_pos[0], nobs[agent_num]['position'][1])
     else:
         return 0 + bomb_bonus, high_pos
+        
+        
+def bomb_reward(nobs, act):
+    dist = np.sqrt(np.sum(np.power(np.array(nobs[0]['position']) - np.array(nobs[1]['position']), 2)))
+    dist = max(1.0, dist)
+             
+    rwd = 0.0                
+    if act[0] == 5:
+        rwd = 5.0/dist
+    elif act[0] == 0:
+        rwd = 0.0
+    else:
+        rwd = 1.0/dist 
 
+    return rwd

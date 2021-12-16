@@ -1,10 +1,11 @@
 # main.py
 
 num_iterations = 1000000
-episodes_per_iter = 25
-gradient_steps_per_iter = 1000
-batch_size = 64
-intermediate_test = 5
+episodes_per_iter = 1
+gradient_steps_per_iter = 50
+batch_size = 16
+episodes_per_eval = 10
+intermediate_test = 1
 render_tests = False
 board_size=8
 
@@ -27,5 +28,5 @@ exploration_noise = 0.1
 #data_generator.py
 
 replay_size = 1000000
-max_steps = 100
-reward_func = None
+max_steps = 500
+reward_func = 'BombReward'
