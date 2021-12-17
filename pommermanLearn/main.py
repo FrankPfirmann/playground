@@ -1,3 +1,7 @@
+#!/usr/bin/env python3
+
+import argparse
+import logging
 import random
 from datetime import datetime
 import os
@@ -50,7 +54,7 @@ def test_pommerman_dqn():
     writer = SummaryWriter(log_dir=log_dir)
 
     for i in range(p.num_iterations):
-        print("Iteration: " + str(i))
+        logging.info(f"Iteration {i} started")
         iteration_stopwatch = Stopwatch(start=True)
         policy = algo.get_policy()
 
@@ -65,7 +69,7 @@ def test_pommerman_dqn():
             loss=algo.train(batch)
             total_loss+=loss
         avg_loss=total_loss/p.gradient_steps_per_iter
-        print(f"{p.gradient_steps_per_iter/gradient_step_stopwatch.stop()} gradient steps/s")
+        logging.debug(f"{p.gradient_steps_per_iter/gradient_step_stopwatch.stop()} gradient steps/s")
 
         writer.add_scalar('Avg. Loss/train', avg_loss, i)
         writer.add_scalar('Avg. Reward/train', avg_rwd, i)
@@ -79,25 +83,47 @@ def test_pommerman_dqn():
             '#Right': act_counts[Action.Right.value],
             '#Bomb': act_counts[Action.Bomb.value]
         }, i)
-        print(f"Iteration {i} finished after {iteration_stopwatch.stop()}s")
+        logging.debug(f"Iteration {i} finished after {iteration_stopwatch.stop()}s")
 
-        print("------------------------")
+        logging.info("------------------------")
         if i % p.intermediate_test == p.intermediate_test-1:
             test_stopwatch=Stopwatch(start=True)
-            print("doing test")
+            logging.info("Testing model")
             algo.set_train(False)
             policy = algo.get_policy()
             
             model_save_path = log_dir + "/" + str(i)
             torch.save(algo.q_network.state_dict(), model_save_path)
-            print("Saved model to : " + model_save_path)
+            logging.info("Saved model to: " + model_save_path)
             data_generator.generate(p.episodes_per_iter, policy, q.get_transformer(), render=p.render_tests)
             algo.set_train(True)
-            print(f"Test finished after {test_stopwatch.stop()}s")
-            print("------------------------")
+            logging.debug(f"Test finished after {test_stopwatch.stop()}s")
+            logging.info("------------------------")
     writer.close()
 
+def setup_logger(log_level=logging.INFO):
+    """
+    Setup the global logger
 
-#test_dqn('CartPole-v1')
-test_pommerman_dqn()
+    :param log_level: The minimum log level to display. Can be one of
+        pythons built-in levels of the logging module.
+    """
+    logging.basicConfig(
+        level=log_level,
+        format="%(asctime)s: %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S"
+    )
 
+def main(args):
+    parser = argparse.ArgumentParser(description='Pommerman agent training script')
+    parser.add_argument('-l', '--loglevel', type=str, dest="loglevel", default="INFO", help=f"Minimum loglevel to display. One of {[name for name in logging._nameToLevel]}")
+
+    args=parser.parse_args(args[1:])
+    setup_logger(log_level=logging.getLevelName(args.loglevel))
+
+    test_pommerman_dqn()
+    #test_dqn('CartPole-v1')
+
+# Only run main() if script if executed explicitly
+if __name__ == '__main__':
+    main(sys.argv)

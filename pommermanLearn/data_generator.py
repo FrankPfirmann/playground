@@ -1,3 +1,4 @@
+import logging
 from logger import Logger
 import random
 from typing import Callable
@@ -57,7 +58,7 @@ class DataGeneratorGymDiscrete:
 
             avg_rwd += ep_rwd
         avg_rwd /= episodes
-        print("Reward " + str(avg_rwd))
+        logging.info("Reward " + str(avg_rwd))
 
 class DataGeneratorPommerman:
     def __init__(self):
@@ -149,8 +150,8 @@ class DataGeneratorPommerman:
 
         avg_rwd /= episodes
         avg_steps /= episodes
-        print(f"Wins: {res}, Ties: {ties}, Avg. Reward: {avg_rwd}, Avg. Steps: {avg_steps}")
-        print(act_counts)
+        logging.info(f"Wins: {res}, Ties: {ties}, Avg. Reward: {avg_rwd}, Avg. Steps: {avg_steps}")
+        logging.info(act_counts)
         self.logger.write(res, ties, avg_rwd)
         env.close()
         # TODO: Change the return type to something more readable outside the function
