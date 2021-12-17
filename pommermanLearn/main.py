@@ -54,7 +54,7 @@ def test_pommerman_dqn():
     writer = SummaryWriter(log_dir=log_dir)
 
     for i in range(p.num_iterations):
-        logging.info(f"Iteration {i} started")
+        logging.info(f"Iteration {i+1}/{p.num_iterations} started")
         iteration_stopwatch = Stopwatch(start=True)
         policy = algo.get_policy()
 
@@ -83,7 +83,7 @@ def test_pommerman_dqn():
             '#Right': act_counts[Action.Right.value],
             '#Bomb': act_counts[Action.Bomb.value]
         }, i)
-        logging.debug(f"Iteration {i} finished after {iteration_stopwatch.stop()}s")
+        logging.debug(f"Iteration {i+1}/{p.num_iterations} finished after {iteration_stopwatch.stop()}s")
 
         logging.info("------------------------")
         if i % p.intermediate_test == p.intermediate_test-1:
@@ -117,9 +117,12 @@ def setup_logger(log_level=logging.INFO):
 def main(args):
     parser = argparse.ArgumentParser(description='Pommerman agent training script')
     parser.add_argument('-l', '--loglevel', type=str, dest="loglevel", default="INFO", help=f"Minimum loglevel to display. One of {[name for name in logging._nameToLevel]}")
+    parser.add_argument('-i', '--iterations', type=int, dest="iterations", default=p.num_iterations, help=f"Number of iterations the model will be trained")
 
     args=parser.parse_args(args[1:])
     setup_logger(log_level=logging.getLevelName(args.loglevel))
+
+    p.num_iterations=args.iterations
 
     test_pommerman_dqn()
     #test_dqn('CartPole-v1')
