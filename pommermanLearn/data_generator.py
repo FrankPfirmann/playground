@@ -9,7 +9,8 @@ from pommerman.constants import Item
 import torch
 
 import params as p
-from util.rewards import staying_alive_reward,go_down_right_reward
+from util.data import transform_observation
+from util.rewards import staying_alive_reward,go_down_right_reward, bomb_reward
 from agents.static_agent import StaticAgent
 from agents.train_agent import TrainAgent
 
@@ -126,6 +127,8 @@ class DataGeneratorPommerman:
                 nobs, rwd, done, _ = env.step(act)
                 if p.reward_func == "DownRight":
                     agt_rwd, high_pos = go_down_right_reward(nobs, high_pos, 0, act)
+                elif p.reward_func == "BombReward":
+                    agt_rwd = bomb_reward(nobs, act)
                 else:
                     agt_rwd = staying_alive_reward(nobs, agent_id)
                 if agent_id in nobs[0]['alive']: #if train agent is still alive

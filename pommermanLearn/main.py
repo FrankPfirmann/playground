@@ -95,7 +95,7 @@ def test_pommerman_dqn():
             model_save_path = log_dir + "/" + str(i)
             torch.save(algo.q_network.state_dict(), model_save_path)
             logging.info("Saved model to: " + model_save_path)
-            data_generator.generate(p.episodes_per_iter, policy, q.get_transformer(), render=p.render_tests)
+            data_generator.generate(p.episodes_per_eval, policy, q.get_transformer(), render=p.render_tests)
             algo.set_train(True)
             logging.debug(f"Test finished after {test_stopwatch.stop()}s")
             logging.info("------------------------")
