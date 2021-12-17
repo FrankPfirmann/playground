@@ -36,7 +36,7 @@ class DQN(object):
             valid_actions_transformed = torch.FloatTensor(valid_actions_transformed).to(torch.device("cpu")).unsqueeze(0)
 
             obs = self.q_network.get_transformer()(obs)
-            obs = torch.FloatTensor(obs).to(self.device).unsqueeze(0)
+            obs = [torch.FloatTensor(o).to(self.device).unsqueeze(0) for o in obs]
 
             if len(valid_actions) != 0:
                 q_values = self.q_network(obs)*valid_actions_transformed
@@ -79,10 +79,10 @@ class DQN(object):
 
     def train(self, batch):
         obs_batch, act_batch, rwd_batch, nobs_batch, done_batch = batch
-        obs_batch = torch.FloatTensor(obs_batch).to(self.device)
+        obs_batch = [torch.FloatTensor(obs).to(self.device) for obs in list(zip(*obs_batch))]
         act_batch = torch.FloatTensor(act_batch).to(self.device)
         rwd_batch = torch.FloatTensor(rwd_batch).to(self.device)
-        nobs_batch = torch.FloatTensor(nobs_batch).to(self.device)
+        nobs_batch = [torch.FloatTensor(nobs).to(self.device) for nobs in list(zip(*nobs_batch))]
         done_batch = torch.FloatTensor(done_batch).to(self.device)
         loss = self.update_q(obs_batch, act_batch, rwd_batch, nobs_batch, done_batch)
         self.update_target(self.q_target_network, self.q_network, p.tau)

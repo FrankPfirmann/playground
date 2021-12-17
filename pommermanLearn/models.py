@@ -57,16 +57,21 @@ class Pommer_Q(nn.Module):
         return dim*dim*self.last_cnn_depth
 
     def forward(self, obs):
-        x = self.conv(obs).squeeze()
+        x=obs[0]
+        x = self.conv(x).squeeze()
         x = self.linear(x).unsqueeze(0)
         return x
 
     def get_transformer(self) -> Callable:
         """
-        Return a callable to transform a single observation from the
-        Pommerman environment to an input format supported by the model.
+        Return a callable for input transformation.
+        
+        The callable should take a ``dict`` containing data of a single
+        observation from the Pommerman environment and return a ``list``
+        of individual numpy arrays that can be used later as an input
+        value in the ``forward()`` function.
         """
-        def transformer(obs: dict) -> np.array:
-            return transform_observation(obs)
+        def transformer(obs: dict) -> list:
+            return [transform_observation(obs)]
 
         return transformer
