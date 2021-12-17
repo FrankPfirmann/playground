@@ -9,9 +9,10 @@ import numpy as np
 import params as p
 from pommerman.constants import Action
 
-from models import DQN_Q, Pommer_Q
 from data_generator import DataGeneratorGymDiscrete, DataGeneratorPommerman
 from dqn import DQN
+from models import DQN_Q, Pommer_Q
+from util.analytics import Stopwatch
 
 def test_dqn(gym_env):
     num_iterations = 100
@@ -50,6 +51,7 @@ def test_pommerman_dqn():
 
     for i in range(p.num_iterations):
         print("Iteration: " + str(i))
+        iteration_stopwatch = Stopwatch(start=True)
         policy = algo.get_policy()
 
         res, ties, avg_rwd, act_counts, avg_steps = data_generator.generate(p.episodes_per_iter, policy, q.get_transformer())
@@ -57,11 +59,13 @@ def test_pommerman_dqn():
         win_ratio = res[0] / (sum(res)+ties)
 
         total_loss=0
+        gradient_step_stopwatch=Stopwatch(start=True)
         for j in range(p.gradient_steps_per_iter):
             batch = data_generator.get_batch_buffer(p.batch_size)
             loss=algo.train(batch)
             total_loss+=loss
         avg_loss=total_loss/p.gradient_steps_per_iter
+        print(f"{p.gradient_steps_per_iter/gradient_step_stopwatch.stop()} gradient steps/s")
 
         writer.add_scalar('Avg. Loss/train', avg_loss, i)
         writer.add_scalar('Avg. Reward/train', avg_rwd, i)
@@ -75,8 +79,11 @@ def test_pommerman_dqn():
             '#Right': act_counts[Action.Right.value],
             '#Bomb': act_counts[Action.Bomb.value]
         }, i)
+        print(f"Iteration {i} finished after {iteration_stopwatch.stop()}s")
+
         print("------------------------")
         if i % p.intermediate_test == p.intermediate_test-1:
+            test_stopwatch=Stopwatch(start=True)
             print("doing test")
             algo.set_train(False)
             policy = algo.get_policy()
@@ -86,7 +93,7 @@ def test_pommerman_dqn():
             print("Saved model to : " + model_save_path)
             data_generator.generate(p.episodes_per_iter, policy, q.get_transformer(), render=p.render_tests)
             algo.set_train(True)
-
+            print(f"Test finished after {test_stopwatch.stop()}s")
             print("------------------------")
     writer.close()
 
