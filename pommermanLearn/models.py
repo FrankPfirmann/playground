@@ -42,12 +42,15 @@ class Pommer_Q(nn.Module):
             nn.Flatten()
         )
 
-        self.linear = nn.Sequential(
-            nn.Linear(in_features=self.input_dim, out_features=32),
+        self.linear=nn.Sequential(
+            nn.Linear(in_features=3, out_features=3),
+            nn.ReLU()
+        )
+
+        self.combined = nn.Sequential(
+            nn.Linear(in_features=self.input_dim+3, out_features=32),
             nn.ReLU(),
-            nn.Linear(in_features=32, out_features=6),
-            # nn.ReLU(),
-            # nn.Linear(in_features=64, out_features=6)
+            nn.Linear(in_features=32, out_features=6)
         )
 
     def _calc_linear_inputdim(self, board_size):
@@ -57,9 +60,14 @@ class Pommer_Q(nn.Module):
         return dim*dim*self.last_cnn_depth
 
     def forward(self, obs):
-        x=obs[0]
-        x = self.conv(x).squeeze()
-        x = self.linear(x).unsqueeze(0)
+        x1=obs[0] # Board
+        x2=obs[1] # Step, Position
+
+        x1 = self.conv(x1)
+        x2 = self.linear(x2)
+        x1_2 = torch.cat((x1, x2), dim=1).squeeze()
+
+        x = self.combined(x1_2).unsqueeze(0)
         return x
 
     def get_transformer(self) -> Callable:
@@ -72,6 +80,11 @@ class Pommer_Q(nn.Module):
         value in the ``forward()`` function.
         """
         def transformer(obs: dict) -> list:
-            return [transform_observation(obs)]
+            return [
+                transform_observation(obs),
+                np.array(np.hstack((
+                    np.array(obs['step_count']),
+                    np.array(list(obs['position']))
+                )))]
 
         return transformer
