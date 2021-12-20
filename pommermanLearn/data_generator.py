@@ -62,12 +62,13 @@ class DataGeneratorGymDiscrete:
         logging.info("Reward " + str(avg_rwd))
 
 class DataGeneratorPommerman:
-    def __init__(self):
+    def __init__(self, env):
         self.device = torch.device("cpu")
 
         # Define replay pool
         self.buffer = []
         self.idx = 0
+        self.env = env
 
         self.logger = Logger('log')
 
@@ -104,7 +105,7 @@ class DataGeneratorPommerman:
             StaticAgent(0)
         ]
         agent_id=10 # ID of training agent
-        env = pommerman.make('OneVsOne-v0', agent_list)
+        env = pommerman.make(self.env, agent_list)
 
         res = np.array([0.0, 0.0])
         act_counts = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]

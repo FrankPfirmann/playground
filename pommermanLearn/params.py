@@ -6,8 +6,9 @@ gradient_steps_per_iter = 50
 batch_size = 16
 episodes_per_eval = 10
 intermediate_test = 1
+centralize_planes = True
 render_tests = False
-board_size=8
+env = 'OneVsOne-v0'
 
 #dqn.py
 

@@ -17,6 +17,7 @@ from data_generator import DataGeneratorGymDiscrete, DataGeneratorPommerman
 from dqn import DQN
 from models import DQN_Q, Pommer_Q
 from util.analytics import Stopwatch
+from util.data import transform_observation, transform_observation_centralized
 
 def test_dqn(gym_env):
     num_iterations = 100
@@ -43,11 +44,18 @@ def test_pommerman_dqn():
     torch.manual_seed(p.seed)
     np.random.seed(p.seed)
     random.seed(p.seed)
-    q = Pommer_Q(p.board_size*2+1)
+
+    if p.env == 'OneVsOne-v0':
+        board_size = 8
+    else:
+        board_size = 11
+    obs_size = board_size if not p.centralize_planes else board_size*2-1
+    transform_func = transform_observation if not p.centralize_planes else transform_observation_centralized
+    q = Pommer_Q(obs_size, transform_func)
     torch.manual_seed(p.seed)
-    q_target = Pommer_Q(p.board_size*2+1)
+    q_target = Pommer_Q(obs_size, transform_func)
     algo = DQN(q, q_target)
-    data_generator = DataGeneratorPommerman()
+    data_generator = DataGeneratorPommerman(p.env)
 
     run_name=datetime.now().strftime("%Y%m%dT%H%M%S")
     log_dir=os.path.join("./data/tensorboard/", run_name)

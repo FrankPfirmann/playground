@@ -7,7 +7,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 #TODO: express model structure as param
 
-from util.data import transform_observation
+from util.data import transform_observation, transform_observation_centralized
+
 
 class DQN_Q(nn.Module):
     def __init__(self, obs_size, act_size, hidden_size):
@@ -25,7 +26,7 @@ class DQN_Q(nn.Module):
 
 
 class Pommer_Q(nn.Module):
-    def __init__(self, board_size):
+    def __init__(self, board_size, board_transform_func):
         super(Pommer_Q, self).__init__()
         self.conv_kernel_size = 3
         self.conv_kernel_stride = 1
@@ -41,6 +42,7 @@ class Pommer_Q(nn.Module):
             # nn.MaxPool2d((2,2),stride=2),
             nn.Flatten()
         )
+        self.board_transform_func = board_transform_func
 
         self.linear=nn.Sequential(
             nn.Linear(in_features=3, out_features=3),
@@ -81,7 +83,7 @@ class Pommer_Q(nn.Module):
         """
         def transformer(obs: dict) -> list:
             return [
-                transform_observation(obs),
+                self.board_transform_func(obs),
                 np.array(np.hstack((
                     np.array(obs['step_count']),
                     np.array(list(obs['position']))
