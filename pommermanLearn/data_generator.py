@@ -67,6 +67,7 @@ class DataGeneratorPommerman:
 
         # Define replay pool
         self.buffer = []
+        self.episode_buffer = []
         self.idx = 0
         self.env = env
 
@@ -82,6 +83,11 @@ class DataGeneratorPommerman:
     def get_batch_buffer(self, size):
         batch = list(zip(*random.sample(self.buffer, size)))
         return np.array(batch[0]), np.array(batch[1]), np.array(batch[2]), np.array(batch[3]), np.array(batch[4])
+
+    def get_episode_buffer(self):
+        batch = list(zip(*random.sample(self.episode_buffer, 1)[0]))
+        return np.array(batch[0]), np.array(batch[1]), np.array(batch[2]), np.array(batch[3]), np.array(batch[4])
+
 
     def generate(self, episodes: int, policy: Callable, transformer: Callable, render: bool=False) -> tuple:
         """
@@ -143,7 +149,9 @@ class DataGeneratorPommerman:
                 #self.add_to_buffer(obs[0], act[0], rwd[0], nobs[0], done)
                 obs = nobs
                 steps_n += 1
-
+            if p.episode_backward:
+                self.episode_buffer.append(self.buffer)
+                self.buffer = []
             avg_rwd += ep_rwd
             avg_steps+=steps_n
             winner = np.where(np.array(rwd) == 1)[0]

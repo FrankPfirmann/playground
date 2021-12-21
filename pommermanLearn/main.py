@@ -73,7 +73,10 @@ def test_pommerman_dqn():
         total_loss=0
         gradient_step_stopwatch=Stopwatch(start=True)
         for j in range(p.gradient_steps_per_iter):
-            batch = data_generator.get_batch_buffer(p.batch_size)
+            if p.episode_backward:
+                batch = data_generator.get_episode_buffer()
+            else:
+                batch = data_generator.get_batch_buffer(p.batch_size)
             loss=algo.train(batch)
             total_loss+=loss
         avg_loss=total_loss/p.gradient_steps_per_iter
@@ -97,7 +100,8 @@ def test_pommerman_dqn():
         if i % p.intermediate_test == p.intermediate_test-1:
             test_stopwatch=Stopwatch(start=True)
             logging.info("Testing model")
-            algo.set_train(False)
+            #Keep exploring in testing for now to avoid deadlocks
+            algo.set_train(True)
             policy = algo.get_policy()
             
             model_save_path = log_dir + "/" + str(i)

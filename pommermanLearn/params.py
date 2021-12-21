@@ -1,15 +1,15 @@
 # main.py
 
 num_iterations = 1000000
-episodes_per_iter = 1
-gradient_steps_per_iter = 50
+episodes_per_iter = 5
+gradient_steps_per_iter = 10
 batch_size = 16
 episodes_per_eval = 10
-intermediate_test = 1
+intermediate_test = 10
 centralize_planes = True
 render_tests = False
 env = 'OneVsOne-v0'
-
+episode_backward = False
 #dqn.py
 
 seed = 1
