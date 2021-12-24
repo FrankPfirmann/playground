@@ -13,6 +13,7 @@ from util.data import transform_observation
 from util.rewards import staying_alive_reward,go_down_right_reward, bomb_reward
 from agents.static_agent import StaticAgent
 from agents.train_agent import TrainAgent
+from data_augmentation import DataAugmentor
 
 class DataGeneratorGymDiscrete:
     def __init__(self, env):
@@ -131,15 +132,26 @@ class DataGeneratorPommerman:
                     agt_rwd = bomb_reward(nobs, act)
                 else:
                     agt_rwd = staying_alive_reward(nobs, agent_id)
-                if agent_id in nobs[0]['alive']: #if train agent is still alive
-                    self.add_to_buffer(transformer(obs[0]), act[0], agt_rwd, transformer(nobs[0]), False)
+
+                alive = agent_id in nobs[0]['alive']
+
+                if alive or not dead_before:
+                    # Build original transition
+                    transition = (transformer(obs[0]), act[0], agt_rwd, transformer(nobs[0]), not alive)
+                    transitions = [transition]
+
+                    # Create new transitions
+                    # transitions.extend( DataAugmentor().augment(*transition) )
+
+                    # Add everything to the buffer
+                    for t in transitions:
+                        self.add_to_buffer(*t)
+
+                if alive:
                     ep_rwd += agt_rwd
-                else:
-                    if not dead_before:
-                        self.add_to_buffer(transformer(obs[0]), act[0], agt_rwd, transformer(nobs[0]), True)
+                elif not dead_before:
                     dead_before = True
 
-                #self.add_to_buffer(obs[0], act[0], rwd[0], nobs[0], done)
                 obs = nobs
                 steps_n += 1
 
