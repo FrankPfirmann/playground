@@ -6,7 +6,6 @@ import random
 from datetime import datetime
 import os
 import sys
-import gym
 import torch
 from torch.utils.tensorboard import SummaryWriter
 import numpy as np
@@ -116,7 +115,6 @@ def main(args):
     p.num_iterations=args.iterations
 
     test_pommerman_dqn()
-    #test_dqn('CartPole-v1')
 
 # Only run main() if script if executed explicitly
 if __name__ == '__main__':

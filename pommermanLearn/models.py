@@ -9,22 +9,6 @@ import torch.nn.functional as F
 
 from util.data import transform_observation, transform_observation_centralized
 
-
-class DQN_Q(nn.Module):
-    def __init__(self, obs_size, act_size, hidden_size):
-        super(DQN_Q, self).__init__()
-
-        self.linear1 = nn.Linear(obs_size, hidden_size)
-        self.linear2 = nn.Linear(hidden_size, hidden_size)
-        self.linear3 = nn.Linear(hidden_size, act_size)
-
-    def forward(self, obs):
-        x1 = F.relu(self.linear1(obs))
-        x1 = F.relu(self.linear2(x1))
-        x1 = self.linear3(x1)
-        return x1
-
-
 class Pommer_Q(nn.Module):
     def __init__(self, board_size, board_transform_func):
         super(Pommer_Q, self).__init__()
