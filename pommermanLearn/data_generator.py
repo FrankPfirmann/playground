@@ -14,53 +14,6 @@ from util.rewards import staying_alive_reward,go_down_right_reward, bomb_reward
 from agents.static_agent import StaticAgent
 from agents.train_agent import TrainAgent
 
-class DataGeneratorGymDiscrete:
-    def __init__(self, env):
-        self.env = env
-        self.device = torch.device("cpu")
-
-        self.obs_size = self.env.observation_space.shape[0]
-        self.act_size = self.env.action_space.n
-
-        # Define replay pool
-        self.buffer = []
-        self.idx = 0
-
-    def add_to_buffer(self, obs, act, rwd, nobs, done):
-        if len(self.buffer) < p.replay_size:
-            self.buffer.append([obs, act, [rwd], nobs, [done]])
-        else:
-            self.buffer[self.idx] = [obs, act, [rwd], nobs, [done]]
-        self.idx = (self.idx + 1) % p.replay_size
-
-    def get_batch_buffer(self, size):
-        batch = list(zip(*random.sample(self.buffer, size)))
-        return np.array(batch[0]), np.array(batch[1]), np.array(batch[2]), np.array(batch[3]), np.array(batch[4])
-
-    def get_action(self, policy, obs):
-        obs = torch.FloatTensor(obs).to(self.device).unsqueeze(0)
-        act = policy(obs)
-        return act.detach().numpy()[0]
-
-    def generate(self, episodes, policy):
-        avg_rwd = 0.0
-        for i in range(episodes):
-            done = False
-            obs = self.env.reset()
-
-            ep_rwd = 0.0
-            while not done:
-                #self.env.render()
-                act = self.get_action(policy, obs)
-                nobs, rwd, done, _ = self.env.step(act)
-                self.add_to_buffer(obs, act, rwd, nobs, done)
-                obs = nobs
-                ep_rwd += rwd
-
-            avg_rwd += ep_rwd
-        avg_rwd /= episodes
-        logging.info("Reward " + str(avg_rwd))
-
 class DataGeneratorPommerman:
     def __init__(self, env):
         self.device = torch.device("cpu")
