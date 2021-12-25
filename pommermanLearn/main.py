@@ -12,9 +12,10 @@ import numpy as np
 import params as p
 from pommerman.constants import Action
 
-from data_generator import DataGeneratorGymDiscrete, DataGeneratorPommerman
+from data_augmentation import DataAugmentor
+from data_generator import DataGeneratorPommerman
 from dqn import DQN
-from models import DQN_Q, Pommer_Q
+from models import Pommer_Q
 from util.analytics import Stopwatch
 from util.data import transform_observation, transform_observation_centralized
 
@@ -33,7 +34,11 @@ def test_pommerman_dqn():
     torch.manual_seed(p.seed)
     q_target = Pommer_Q(obs_size, transform_func)
     algo = DQN(q, q_target)
-    data_generator = DataGeneratorPommerman(p.env)
+    data_generator = DataGeneratorPommerman(
+	p.env,
+	augmenter=[
+            DataAugmentor()
+        ])
 
     run_name=datetime.now().strftime("%Y%m%dT%H%M%S")
     log_dir=os.path.join("./data/tensorboard/", run_name)
