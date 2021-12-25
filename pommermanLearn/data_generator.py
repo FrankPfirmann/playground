@@ -63,7 +63,14 @@ class DataGeneratorGymDiscrete:
         logging.info("Reward " + str(avg_rwd))
 
 class DataGeneratorPommerman:
-    def __init__(self):
+    def __init__(self, augmenter: list=[]) -> None:
+        """
+        Create a new DataGenerator instance.
+
+        :param augmenter: A list of DataAugmentor derivates
+        """
+        self.augmenter = augmenter
+
         self.device = torch.device("cpu")
 
         # Define replay pool
@@ -141,7 +148,8 @@ class DataGeneratorPommerman:
                     transitions = [transition]
 
                     # Create new transitions
-                    # transitions.extend( DataAugmentor().augment(*transition) )
+                    for augmentor in self.augmenter:
+                        transitions.extend( augmentor.augment(*transition) )
 
                     # Add everything to the buffer
                     for t in transitions:

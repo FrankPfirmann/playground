@@ -17,6 +17,7 @@ from data_generator import DataGeneratorGymDiscrete, DataGeneratorPommerman
 from dqn import DQN
 from models import DQN_Q, Pommer_Q
 from util.analytics import Stopwatch
+from data_augmentation import DataAugmentor
 
 def test_dqn(gym_env):
     num_iterations = 100
@@ -47,7 +48,12 @@ def test_pommerman_dqn():
     torch.manual_seed(p.seed)
     q_target = Pommer_Q(p.board_size*2+1)
     algo = DQN(q, q_target)
-    data_generator = DataGeneratorPommerman()
+
+    data_generator = DataGeneratorPommerman(
+        augmenter=[
+            #DataAugmentor()
+        ]
+    )
 
     run_name=datetime.now().strftime("%Y%m%dT%H%M%S")
     log_dir=os.path.join("./data/tensorboard/", run_name)
