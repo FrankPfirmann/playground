@@ -37,7 +37,7 @@ def test_pommerman_dqn():
     data_generator = DataGeneratorPommerman(
 	p.env,
 	augmenter=[
-            DataAugmentor()
+            #DataAugmentor()
         ])
 
     run_name=datetime.now().strftime("%Y%m%dT%H%M%S")
