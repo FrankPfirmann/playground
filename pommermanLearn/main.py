@@ -51,6 +51,7 @@ def test_pommerman_dqn():
 
         res, ties, avg_rwd, act_counts, avg_steps = data_generator.generate(p.episodes_per_iter, policy, q.get_transformer())
         act_counts=[act/sum(act_counts) for act in act_counts] # Normalize
+        #The agents wins are stored at index 0 i the data_generator
         win_ratio = res[0] / (sum(res)+ties)
 
         total_loss=0

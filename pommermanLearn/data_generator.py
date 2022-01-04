@@ -65,20 +65,19 @@ class DataGeneratorPommerman:
             following order: list of wins, ties, average reward, action
             counts, average steps
         """
-        # Assume first agent is TrainAgent
-        agent_list = [
-            TrainAgent(policy),
-            StaticAgent(0)
-        ]
-        agent_id=10 # ID of training agent
-        env = pommerman.make(self.env, agent_list)
 
         res = np.array([0.0, 0.0])
         act_counts = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         ties = 0.0
         avg_rwd = 0.0
-        avg_steps=0.0
+        avg_steps = 0.0
         for i_episode in range(episodes):
+            agents_n = 2 if p.env == 'OneVsOne-v0' else 4
+            agent_ind = np.random.randint(0, agents_n)
+            agent_list = [TrainAgent(policy) if i == agent_ind else StaticAgent(0) for i in range(0, agents_n)]
+            agent_id = 10 if agent_ind == 0 else 11  # ID of training agent
+
+            env = pommerman.make(self.env, agent_list)
             obs = env.reset()
             done = False
             ep_rwd = 0.0
@@ -90,20 +89,20 @@ class DataGeneratorPommerman:
                 if render and i_episode == 0:
                     env.render()
                 act = env.act(obs)
-                act_counts[int(act[0])] += 1
+                act_counts[int(act[agent_ind])] += 1
                 nobs, rwd, done, _ = env.step(act)
                 if p.reward_func == "DownRight":
-                    agt_rwd, high_pos = go_down_right_reward(nobs, high_pos, 0, act)
+                    agt_rwd, high_pos = go_down_right_reward(nobs, high_pos, agent_ind, act)
                 elif p.reward_func == "BombReward":
-                    agt_rwd = bomb_reward(nobs, act)
+                    agt_rwd = bomb_reward(nobs, act, agent_ind)
                 else:
                     agt_rwd = staying_alive_reward(nobs, agent_id)
 
-                alive = agent_id in nobs[0]['alive']
+                alive = agent_id in nobs[agent_ind]['alive']
 
                 if alive or not dead_before:
                     # Build original transition
-                    transition = (transformer(obs[0]), act[0], agt_rwd, transformer(nobs[0]), not alive)
+                    transition = (transformer(obs[agent_ind]), act[agent_ind], agt_rwd, transformer(nobs[agent_ind]), not alive)
                     transitions = [transition]
 
                     # Create new transitions
@@ -125,18 +124,20 @@ class DataGeneratorPommerman:
                 self.episode_buffer.append(self.buffer)
                 self.buffer = []
             avg_rwd += ep_rwd
-            avg_steps+=steps_n
+            avg_steps += steps_n
             winner = np.where(np.array(rwd) == 1)[0]
             if len(winner) == 0:
                 ties += 1
+            elif winner[0] == agent_ind:
+                res[0] += 1
             else:
-                res[winner] += 1
+                res[1] += 1
 
+            env.close()
         avg_rwd /= episodes
         avg_steps /= episodes
         logging.info(f"Wins: {res}, Ties: {ties}, Avg. Reward: {avg_rwd}, Avg. Steps: {avg_steps}")
         logging.info(act_counts)
         self.logger.write(res, ties, avg_rwd)
-        env.close()
         # TODO: Change the return type to something more readable outside the function
         return (res, ties, avg_rwd, act_counts, avg_steps)
