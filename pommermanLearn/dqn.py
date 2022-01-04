@@ -112,10 +112,12 @@ class DQN(object):
             y[-1] = rwd_batch[-1]
             loss = self.update_q_backward(obs_batch, act_batch, rwd_batch, nobs_batch, done_batch, q_t, y)
         else:
-            obs_batch = [torch.FloatTensor(obs).to(self.device) for obs in list(zip(*obs_batch))]
+            obs_batch = [np.array(obs) for obs in list(zip(*obs_batch))]
+            obs_batch = [torch.FloatTensor(obs).to(self.device) for obs in obs_batch]
             act_batch = torch.FloatTensor(act_batch).to(self.device)
             rwd_batch = torch.FloatTensor(rwd_batch).to(self.device)
-            nobs_batch = [torch.FloatTensor(nobs).to(self.device) for nobs in list(zip(*nobs_batch))]
+            nobs_batch = [np.array(obs) for obs in list(zip(*nobs_batch))]
+            nobs_batch = [torch.FloatTensor(nobs).to(self.device) for nobs in nobs_batch]
             done_batch = torch.FloatTensor(done_batch).to(self.device)
             loss = self.update_q(obs_batch, act_batch, rwd_batch, nobs_batch, done_batch)
         self.update_target(self.q_target_network, self.q_network, p.tau)
