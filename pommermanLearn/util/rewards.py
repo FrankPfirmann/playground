@@ -41,7 +41,9 @@ def go_down_right_reward(nobs, high_pos, agent_num, act):
         
         
 def bomb_reward(nobs, act, agent_ind):
-    dist = np.sqrt(np.sum(np.power(np.array(nobs[0]['position']) - np.array(nobs[1]['position']), 2)))
+    other_inds = [i for i in range(0, len(nobs))]
+    other_inds.pop(agent_ind)
+    dist = np.min([np.sqrt(np.sum(np.power(np.array(nobs[agent_ind]['position']) - np.array(nobs[ind]['position']), 2))) for ind in other_inds])
     dist = max(1.0, dist)
              
     rwd = 0.0                

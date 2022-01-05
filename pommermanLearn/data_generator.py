@@ -66,16 +66,16 @@ class DataGeneratorPommerman:
             counts, average steps
         """
 
-        res = np.array([0.0, 0.0])
+        agents_n = 2 if self.env == 'OneVsOne-v0' else 4
+        res = np.array([0.0] * 2)
         act_counts = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         ties = 0.0
         avg_rwd = 0.0
         avg_steps = 0.0
         for i_episode in range(episodes):
-            agents_n = 2 if p.env == 'OneVsOne-v0' else 4
             agent_ind = np.random.randint(0, agents_n)
             agent_list = [TrainAgent(policy) if i == agent_ind else StaticAgent(0) for i in range(0, agents_n)]
-            agent_id = 10 if agent_ind == 0 else 11  # ID of training agent
+            agent_id = 10 + agent_ind  # ID of training agent
 
             env = pommerman.make(self.env, agent_list)
             obs = env.reset()

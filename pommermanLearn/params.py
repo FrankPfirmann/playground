@@ -8,7 +8,7 @@ episodes_per_eval = 10
 intermediate_test = 10
 centralize_planes = True
 render_tests = False
-env = 'OneVsOne-v0'
+env = 'PommeFFACompetition-v0'  # PommeFFACompetition-v0 or OneVsOne-v0
 episode_backward = False
 #dqn.py
 
