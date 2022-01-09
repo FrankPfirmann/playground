@@ -73,3 +73,11 @@ def transform_observation_centralized(obs):
     transformed = np.moveaxis(transformed, -1, 0) #move channel dimension to front (pytorch expects this)
     features['board']=transformed
     return transformed
+
+
+def calc_dist(agent_ind, nobs):
+    other_inds = [i for i in range(0, len(nobs))]
+    other_inds.pop(agent_ind)
+    dist = np.min([np.sqrt(np.sum(np.power(np.array(nobs[agent_ind]['position']) - np.array(nobs[ind]['position']), 2))) for ind in other_inds])
+    dist = max(1.0, dist)
+    return dist

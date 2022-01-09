@@ -1,4 +1,6 @@
 import logging
+from collections import deque
+
 from logger import Logger
 import random
 from typing import Callable
@@ -10,7 +12,7 @@ import torch
 
 import params as p
 from util.data import transform_observation
-from util.rewards import staying_alive_reward,go_down_right_reward, bomb_reward
+from util.rewards import staying_alive_reward, go_down_right_reward, bomb_reward, skynet_reward
 from agents.static_agent import StaticAgent
 from agents.train_agent import TrainAgent
 from data_augmentation import DataAugmentor
@@ -72,6 +74,7 @@ class DataGeneratorPommerman:
         ties = 0.0
         avg_rwd = 0.0
         avg_steps = 0.0
+        fifo = [[] for _ in range(agents_n)]
         for i_episode in range(episodes):
             agent_ind = np.random.randint(0, agents_n)
             agent_list = [TrainAgent(policy) if i == agent_ind else StaticAgent(0) for i in range(0, agents_n)]
@@ -83,16 +86,17 @@ class DataGeneratorPommerman:
             ep_rwd = 0.0
             dead_before = False
             steps_n = 0
-            # high pos for down right reward
-            high_pos=(0,0)
+            for i in range(agents_n):
+                fifo[i].clear()
+
             while not done and steps_n < p.max_steps:
                 if render and i_episode == 0:
                     env.render()
                 act = env.act(obs)
                 act_counts[int(act[agent_ind])] += 1
                 nobs, rwd, done, _ = env.step(act)
-                if p.reward_func == "DownRight":
-                    agt_rwd, high_pos = go_down_right_reward(nobs, high_pos, agent_ind, act)
+                if p.reward_func == "SkynetReward":
+                    agt_rwd = skynet_reward(obs, act, nobs, fifo)[agent_ind]*100
                 elif p.reward_func == "BombReward":
                     agt_rwd = bomb_reward(nobs, act, agent_ind)
                 else:

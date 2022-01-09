@@ -29,12 +29,12 @@ class Pommer_Q(nn.Module):
         self.board_transform_func = board_transform_func
 
         self.linear=nn.Sequential(
-            nn.Linear(in_features=3, out_features=3),
+            nn.Linear(in_features=6, out_features=6),
             nn.ReLU()
         )
 
         self.combined = nn.Sequential(
-            nn.Linear(in_features=self.input_dim+3, out_features=32),
+            nn.Linear(in_features=self.input_dim+6, out_features=32),
             nn.ReLU(),
             nn.Linear(in_features=32, out_features=6)
         )
@@ -70,7 +70,10 @@ class Pommer_Q(nn.Module):
                 self.board_transform_func(obs),
                 np.array(np.hstack((
                     np.array(obs['step_count']),
-                    np.array(list(obs['position']))
+                    np.array(list(obs['position'])),
+                    np.array(obs['ammo']),
+                    np.array(obs['can_kick']),
+                    np.array(obs['blast_strength'])
                 )))]
 
         return transformer
