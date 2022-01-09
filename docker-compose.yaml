@@ -1,0 +1,6 @@
+version: "3.0"
+services:
+  agent:
+    build: .
+    ports:
+      - "10080:10080"
