@@ -75,9 +75,11 @@ def transform_observation_centralized(obs):
     return transformed
 
 
-def calc_dist(agent_ind, nobs):
+def calc_dist(agent_ind, nobs, teammate_ind=-1):
     other_inds = [i for i in range(0, len(nobs))]
-    other_inds.pop(agent_ind)
+    other_inds.remove(agent_ind)
+    if teammate_ind != -1:
+        other_inds.remove(teammate_ind)
     dist = np.min([np.sqrt(np.sum(np.power(np.array(nobs[agent_ind]['position']) - np.array(nobs[ind]['position']), 2))) for ind in other_inds])
     dist = max(1.0, dist)
     return dist

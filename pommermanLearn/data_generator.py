@@ -28,11 +28,15 @@ class DataGeneratorPommerman:
         """
         self.device = torch.device("cpu")
 
+
+        self.env = env
         # Define replay pool
         self.buffer = []
         self.episode_buffer = []
+
+        self.agents_n = 2 if self.env == 'OneVsOne-v0' else 4
+        self.buffers = [[] for _ in range(int(self.agents_n/2))]
         self.idx = 0
-        self.env = env
         self.augmenter = augmenter
 
         self.logger = Logger('log')
@@ -47,6 +51,13 @@ class DataGeneratorPommerman:
     def get_batch_buffer(self, size):
         batch = list(zip(*random.sample(self.buffer, size)))
         return np.array(batch[0]), np.array(batch[1]), np.array(batch[2]), np.array(batch[3]), np.array(batch[4])
+
+    def add_to_episode_buffer(self, i, obs, act, rwd, nobs, done):
+        if len(self.buffer) < p.replay_size:
+            self.buffers[i].append([obs, act, [rwd], nobs, [done]])
+        else:
+            self.buffers[i][self.idx] = [obs, act, [rwd], nobs, [done]]
+        self.idx = (self.idx + 1) % p.replay_size
 
     def get_episode_buffer(self):
         batch = list(zip(*random.sample(self.episode_buffer, 1)[0]))
@@ -70,13 +81,14 @@ class DataGeneratorPommerman:
             counts, average steps
         """
 
-        agents_n = 2 if self.env == 'OneVsOne-v0' else 4
+
         res = np.array([0.0] * 2)
         act_counts = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         ties = 0.0
         avg_rwd = 0.0
         avg_steps = 0.0
-        fifo = [[] for _ in range(agents_n)]
+        fifo = [[] for _ in range(self.agents_n)]
+        skynet_reward_log = [[0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0]]
         for i_episode in range(episodes):
             agent_ind = np.random.randint(0, 1)
             agent_list1 = [
@@ -105,9 +117,8 @@ class DataGeneratorPommerman:
             ep_rwd = 0.0
             dead_before = False
             alive = [True, True]
-            agt_rwd = 0
             steps_n = 0
-            for i in range(agents_n):
+            for i in range(self.agents_n):
                 fifo[i].clear()
 
             while not done and steps_n < p.max_steps:
@@ -119,17 +130,16 @@ class DataGeneratorPommerman:
                 act_counts[int(act[agent_inds[1]])] += 1
                 nobs, rwd, done, _ = env.step(act)
 
-                
-
+                if p.reward_func == "SkynetReward":
+                    skynet_rwds = skynet_reward(obs, act, nobs, fifo, agent_inds, skynet_reward_log)
 
                 for i in range(2):
-
                     if p.reward_func == "SkynetReward":
-                        agt_rwd += skynet_reward(obs, act, nobs, fifo)[agent_inds[i]]*100
+                        agt_rwd = skynet_rwds[agent_inds[i]] * 100
                     elif p.reward_func == "BombReward":
-                        agt_rwd += bomb_reward(nobs, act, agent_inds[i])
+                        agt_rwd = bomb_reward(nobs, act, agent_inds[i])
                     else:
-                        agt_rwd += staying_alive_reward(nobs, agent_ids[i])
+                        agt_rwd = staying_alive_reward(nobs, agent_ids[i])
 
                     alive[i] = agent_ids[i] in nobs[agent_inds[i]]['alive']
 
@@ -137,14 +147,16 @@ class DataGeneratorPommerman:
                         # Build original transition
                         transition = (transformer(obs[agent_inds[i]]), act[agent_inds[i]], agt_rwd, transformer(nobs[agent_inds[i]]), not alive)
                         transitions = [transition]
-
                         # Create new transitions
                         for augmentor in self.augmenter:
                             transitions.extend( augmentor.augment(*transition) )
 
                         # Add everything to the buffer
                         for t in transitions:
-                            self.add_to_buffer(*t)
+                            if not p.episode_backward:
+                                self.add_to_buffer(*t)
+                            else:
+                                self.add_to_episode_buffer(i, *t)
 
                     if alive[i]:
                         ep_rwd += agt_rwd
@@ -154,8 +166,9 @@ class DataGeneratorPommerman:
                 obs = nobs
                 steps_n += 1
             if p.episode_backward:
-                self.episode_buffer.append(self.buffer)
-                self.buffer = []
+                for i in range(len(self.buffers)):
+                    self.episode_buffer.append(self.buffers[i])
+                    self.buffers[i] = []
             avg_rwd += ep_rwd
             avg_steps += steps_n
             winner = np.where(np.array(rwd) == 1)[0]
@@ -170,6 +183,13 @@ class DataGeneratorPommerman:
         avg_rwd /= episodes
         avg_steps /= episodes
         logging.info(f"Wins: {res}, Ties: {ties}, Avg. Reward: {avg_rwd}, Avg. Steps: {avg_steps}")
+        if p.reward_func == "SkynetReward":
+            logging.info(
+                f"Skynet Reward split agent 1: Kills: {skynet_reward_log[0][0]}, Items: {skynet_reward_log[0][1]},"
+                        f" Steps(FIFO): {skynet_reward_log[0][2]}, Bombs: {skynet_reward_log[0][3]}, Deaths: {skynet_reward_log[0][4]}")
+            logging.info(
+                f"Skynet Reward split agent 2: Kills: {skynet_reward_log[1][0]}, Items: {skynet_reward_log[1][1]},"
+                        f" Steps(FIFO): {skynet_reward_log[1][2]}, Bombs: {skynet_reward_log[1][3]}, Deaths: {skynet_reward_log[1][4]}")
         logging.info(act_counts)
         self.logger.write(res, ties, avg_rwd)
         # TODO: Change the return type to something more readable outside the function
