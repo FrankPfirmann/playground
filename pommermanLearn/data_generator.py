@@ -139,7 +139,8 @@ class DataGeneratorPommerman:
                         agt_rwd = staying_alive_reward(nobs, agent_ids[i])
 
                     #draw reward
-                    if done and steps_n == pommerman.constants.MAX_STEPS:
+                    if steps_n == p.max_steps:
+                        done = True
                         if agent_list[agent_inds[i]].is_alive:
                             agt_rwd = -1
                             logging.info(f"Draw rewarded with {agt_rwd} for each living agent")
