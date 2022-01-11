@@ -23,7 +23,9 @@ def transform_observation(obs):
         np.isin(board, Item.IncrRange.value).astype(np.uint8),
         np.isin(board, Item.Kick.value).astype(np.uint8),
         np.isin(board, Item.Agent0.value).astype(np.uint8),
-        np.isin(board, Item.Agent1.value).astype(np.uint8)
+        np.isin(board, Item.Agent1.value).astype(np.uint8),
+        np.isin(board, Item.Agent2.value).astype(np.uint8),
+        np.isin(board, Item.Agent3.value).astype(np.uint8)
     ]
 
     transformed = np.stack(planes, axis=-1)
@@ -65,7 +67,9 @@ def transform_observation_centralized(obs):
         np.isin(board, Item.IncrRange.value).astype(np.uint8),
         np.isin(board, Item.Kick.value).astype(np.uint8),
         np.isin(board, Item.Agent0.value).astype(np.uint8),
-        np.isin(board, Item.Agent1.value).astype(np.uint8)
+        np.isin(board, Item.Agent1.value).astype(np.uint8),
+        np.isin(board, Item.Agent2.value).astype(np.uint8),
+        np.isin(board, Item.Agent3.value).astype(np.uint8)
     ]
     planes = _centralize_planes(planes, obs['position'])
 

@@ -6,7 +6,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 #TODO: express model structure as param
-
+from pommerman.constants import Item
 from util.data import transform_observation, transform_observation_centralized
 
 class Pommer_Q(nn.Module):
@@ -20,7 +20,7 @@ class Pommer_Q(nn.Module):
         self.last_cnn_depth = 32
         self.input_dim= int(self._calc_linear_inputdim(board_size))
         self.conv = nn.Sequential(
-            nn.Conv2d(in_channels=10, out_channels=self.last_cnn_depth, kernel_size=(3, 3), stride=(1, 1)),\
+            nn.Conv2d(in_channels=12, out_channels=self.last_cnn_depth, kernel_size=(3, 3), stride=(1, 1)),\
             nn.MaxPool2d((2,2),stride=2),\
             # nn.Conv2d(in_channels=32, out_channels=256, kernel_size=(2, 2), stride=(1, 1)),
             # nn.MaxPool2d((2,2),stride=2),

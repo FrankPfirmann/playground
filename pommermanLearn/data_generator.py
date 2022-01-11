@@ -115,37 +115,42 @@ class DataGeneratorPommerman:
             obs = env.reset()
             done = False
             ep_rwd = 0.0
-            dead_before = False
             alive = [True, True]
             steps_n = 0
             for i in range(self.agents_n):
                 fifo[i].clear()
 
-            while not done and steps_n < p.max_steps:
+            while not done:
                 if render and i_episode == 0:
                     env.render()
-
                 act = env.act(obs)
                 act_counts[int(act[agent_inds[0]])] += 1
                 act_counts[int(act[agent_inds[1]])] += 1
                 nobs, rwd, done, _ = env.step(act)
-
                 if p.reward_func == "SkynetReward":
                     skynet_rwds = skynet_reward(obs, act, nobs, fifo, agent_inds, skynet_reward_log)
 
                 for i in range(2):
                     if p.reward_func == "SkynetReward":
-                        agt_rwd = skynet_rwds[agent_inds[i]] * 100
+                        agt_rwd = skynet_rwds[agent_inds[i]]
                     elif p.reward_func == "BombReward":
-                        agt_rwd = bomb_reward(nobs, act, agent_inds[i])
+                        agt_rwd = bomb_reward(nobs, act, agent_inds[i])/100
                     else:
                         agt_rwd = staying_alive_reward(nobs, agent_ids[i])
 
-                    alive[i] = agent_ids[i] in nobs[agent_inds[i]]['alive']
+                    #draw reward
+                    if done and steps_n == pommerman.constants.MAX_STEPS:
+                        if agent_list[agent_inds[i]].is_alive:
+                            agt_rwd = -1
+                            logging.info(f"Draw rewarded with {agt_rwd} for each living agent")
+                    #death reward
+                    if alive[i] and agent_ids[i] not in nobs[agent_inds[i]]['alive']:
+                        agt_rwd = -1
+                        logging.info(f"Death of agent {agent_inds[i]} rewarded with {agt_rwd}")
 
-                    if alive[i] or not dead_before:
+                    if alive[i]:
                         # Build original transition
-                        transition = (transformer(obs[agent_inds[i]]), act[agent_inds[i]], agt_rwd, transformer(nobs[agent_inds[i]]), not alive)
+                        transition = (transformer(obs[agent_inds[i]]), act[agent_inds[i]], agt_rwd*100, transformer(nobs[agent_inds[i]]), not alive)
                         transitions = [transition]
                         # Create new transitions
                         for augmentor in self.augmenter:
@@ -158,10 +163,9 @@ class DataGeneratorPommerman:
                             else:
                                 self.add_to_episode_buffer(i, *t)
 
+                    alive[i] = agent_ids[i] in nobs[agent_inds[i]]['alive']
                     if alive[i]:
                         ep_rwd += agt_rwd
-                    elif not dead_before:
-                        dead_before = True
 
                 obs = nobs
                 steps_n += 1
