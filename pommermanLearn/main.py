@@ -12,7 +12,7 @@ import numpy as np
 import params as p
 from pommerman.constants import Action
 
-from data_augmentation import DataAugmentor
+from data_augmentation import DataAugmentor_v1
 from data_generator import DataGeneratorPommerman
 from dqn import DQN
 from models import Pommer_Q
@@ -37,7 +37,7 @@ def test_pommerman_dqn():
     data_generator = DataGeneratorPommerman(
 	p.env,
 	augmenter=[
-            #DataAugmentor()
+            DataAugmentor_v1()
         ])
 
     run_name=datetime.now().strftime("%Y%m%dT%H%M%S")
