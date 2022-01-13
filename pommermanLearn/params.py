@@ -10,6 +10,7 @@ centralize_planes = True
 render_tests = False
 env = 'PommeFFACompetition-v0'  # PommeFFACompetition-v0 or OneVsOne-v0
 episode_backward = False
+p_observable = True
 #dqn.py
 
 seed = 1
@@ -30,4 +31,4 @@ exploration_noise = 0.1
 
 replay_size = 1000000
 max_steps = 500
-reward_func = 'BombReward'
+reward_func = 'SkynetReward'
