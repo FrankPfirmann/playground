@@ -161,7 +161,9 @@ class DataGeneratorPommerman:
                         transitions = [transition]
                         # Create new transitions
                         for augmentor in self.augmenter:
-                            transitions.extend( augmentor.augment(*transition) )
+                            transition_augmented = augmentor.augment(obs[agent_inds[i]], act[agent_inds[i]], agt_rwd*100, nobs[agent_inds[i]], not alive)
+                            for t in transition_augmented:
+                                transitions.append((transformer(t[0]), t[1], t[2]*100, transformer(t[3]), t[4]))
 
                         # Add everything to the buffer
                         for t in transitions:
