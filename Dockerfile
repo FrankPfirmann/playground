@@ -2,11 +2,11 @@ FROM python:3.6
 
 # @TODO to be replaced with `pip install pommerman`
 ADD . /pommerman
-RUN cd /pommerman && pip install -e .[extras]
+#RUN cd /pommerman && pip install -e .[extras]
+RUN pip install git+https://github.com/MultiAgentLearning/playground
+RUN pip install torch
+#ADD ./pommermanLearn /pommerman/pommermanLearn
 # end @TODO
-
-# Should be replaced with a download inside the container
-ADD ./data/tensorboard/20211218T184421-aux-softmax/679 ./pommerman/data/models/deployment
 
 EXPOSE 10080
 
