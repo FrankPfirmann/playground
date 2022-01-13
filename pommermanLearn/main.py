@@ -17,7 +17,7 @@ from data_generator import DataGeneratorPommerman
 from dqn import DQN
 from models import Pommer_Q
 from util.analytics import Stopwatch
-from util.data import transform_observation, transform_observation_centralized
+from util.data import transform_observation_simple, transform_observation_partial, transform_observation_centralized
 
 def test_pommerman_dqn():
     torch.manual_seed(p.seed)
@@ -29,10 +29,16 @@ def test_pommerman_dqn():
     else:
         board_size = 11
     obs_size = board_size if not p.centralize_planes else board_size*2-1
-    transform_func = transform_observation if not p.centralize_planes else transform_observation_centralized
-    q = Pommer_Q(obs_size, transform_func)
+    if p.p_observable:
+        transform_func = transform_observation_partial
+    elif p.centralize_planes:
+        transform_func = transform_observation_centralized
+    else:
+        transform_func = transform_observation_simple
+
+    q = Pommer_Q(p.p_observable, transform_func)
     torch.manual_seed(p.seed)
-    q_target = Pommer_Q(obs_size, transform_func)
+    q_target = Pommer_Q(p.p_observable, transform_func)
     algo = DQN(q, q_target)
     data_generator = DataGeneratorPommerman(
 	p.env,
