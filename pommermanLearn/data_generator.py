@@ -8,6 +8,7 @@ from typing import Callable
 
 import numpy as np
 import pommerman
+from pommerman.agents import SimpleAgent
 from pommerman.constants import Item
 import torch
 import sys
@@ -142,17 +143,17 @@ class DataGeneratorPommerman:
                     if done:
                         winner = np.where(np.array(rwd) == 1)[0]
                         if agent_inds[0] in winner:
-                            agt_rwd = 1
+                            agt_rwd = 0.5
                             logging.info(f"Win rewarded with {agt_rwd} for each living agent")
                     #draw reward
                     if steps_n == p.max_steps:
                         done = True
                         if agent_list[agent_inds[i]].is_alive:
-                            agt_rwd = -1
+                            agt_rwd = -0.5
                             logging.info(f"Draw rewarded with {agt_rwd} for each living agent")
                     #death reward
                     if alive[i] and agent_ids[i] not in nobs[agent_inds[i]]['alive']:
-                        agt_rwd = -1
+                        agt_rwd = -0.5
                         logging.info(f"Death of agent {agent_inds[i]} rewarded with {agt_rwd}")
                     if alive[i]:
                         # Build original transition
@@ -172,9 +173,9 @@ class DataGeneratorPommerman:
                             else:
                                 self.add_to_episode_buffer(i, *t)
 
-                    alive[i] = agent_ids[i] in nobs[agent_inds[i]]['alive']
                     if alive[i]:
                         ep_rwd += agt_rwd
+                    alive[i] = agent_ids[i] in nobs[agent_inds[i]]['alive']
                 obs = nobs
                 steps_n += 1
             if p.episode_backward:

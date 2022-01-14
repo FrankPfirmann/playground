@@ -4,7 +4,7 @@ from pommerman.runner import DockerAgentRunner
 from agents.train_agent import TrainAgent
 from models import Pommer_Q
 from dqn import DQN
-from util.data import transform_observation_centralized
+from util.data import transform_observation_partial
 
 from pommerman.agents.base_agent import BaseAgent
 
@@ -27,8 +27,8 @@ class DeploymentAgent(BaseAgent, DockerAgentRunner):
         self.device = torch.device("cpu")
         model_dir="./data/models/deployment.pkl"
 
-        q = Pommer_Q(11*2-1, transform_observation_centralized)
-        q_target = Pommer_Q(11*2-1, transform_observation_centralized)
+        q = Pommer_Q(11*2-1, transform_observation_partial)
+        q_target = Pommer_Q(11*2-1, transform_observation_partial)
 
         algo = DQN(q, q_target)
         algo.q_network.load_state_dict(torch.load(model_dir))
