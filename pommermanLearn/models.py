@@ -29,8 +29,11 @@ class Pommer_Q(nn.Module):
         self.pool_kernel_stride = 2
         self.last_cnn_depth = 32
         self.input_dim = 512
+        self.p_obs = p_obs
         self.planes_num = 13 if p_obs else 12
         self.padding = 1 if p_obs else 0
+        self.use_memory = False
+        self.memory = None
 
         self.conv = nn.Sequential(
             nn.Conv2d(in_channels=self.planes_num, out_channels=self.last_cnn_depth, kernel_size=(3, 3), stride=(1, 1)),\
@@ -55,6 +58,32 @@ class Pommer_Q(nn.Module):
         #self.linear.apply(init_weights)
         #self.combined.apply(init_weights)
 
+    def update_memory(self, nobs):
+        if self.memory is None:
+            self.memory = nobs
+            return
+
+        forgetfulness=1/9
+        remembrance=1-forgetfulness
+        outer = nobs[0][..., 12, :, :]
+        inner = 1-outer
+
+        #print(inner)
+        #print(outer)
+        #print(nobs[0][..., 2, :, :])
+
+        # Combine new view and view from memory of walls and passages
+        for layer in [0, 1]:
+            nobs[0][..., layer, :, :] = self.memory[0][..., layer, :, :] + nobs[0][..., layer, :, :]
+
+        # Update inner view and forget outer view for all other layers
+        for layer in [2,3,4,5,6,7,8,9,10,11]:
+            # Take inner observations as given and reduce the value of outer obserations
+            nobs[0][..., layer, :, :] = nobs[0][..., layer, :, :]*inner*remembrance + nobs[0][..., layer, :, :]*outer
+        #print(nobs[0][..., 2, :, :])
+
+        self.memory = nobs
+
     def _calc_linear_inputdim(self, board_size):
         dim = (board_size-self.conv_kernel_size+self.padding*2)/self.conv_kernel_stride + 1
         dim = np.floor((dim+ (self.pool_kernel_size -1) - 1)/self.pool_kernel_stride)
@@ -62,6 +91,11 @@ class Pommer_Q(nn.Module):
         return dim*dim*self.last_cnn_depth
 
     def forward(self, obs):
+        if self.use_memory and self.p_obs:
+            raise NotImplemented("Board memory is currently not implemented!")
+            self.update_memory(obs)
+            obs = self.memory
+
         x1=obs[0] # Board
         x2=obs[1] # Step, Position
 

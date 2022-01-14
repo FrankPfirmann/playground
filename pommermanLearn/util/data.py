@@ -16,19 +16,20 @@ def transform_observation(obs, p_obs=False, centralized=False):
     features = {}
 
     board = obs['board']
-    planes = [
-        np.isin(board, Item.Passage.value).astype(np.uint8),
-        np.isin(board, Item.Rigid.value).astype(np.uint8),
-        np.isin(board, Item.Wood.value).astype(np.uint8),
-        np.isin(board, Item.Bomb.value).astype(np.uint8),
-        np.isin(board, Item.Flames.value).astype(np.uint8),
-        np.isin(board, Item.ExtraBomb.value).astype(np.uint8),
-        np.isin(board, Item.IncrRange.value).astype(np.uint8),
-        np.isin(board, Item.Kick.value).astype(np.uint8),
-        np.isin(board, Item.Agent0.value).astype(np.uint8),
-        np.isin(board, Item.Agent1.value).astype(np.uint8),
-        np.isin(board, Item.Agent2.value).astype(np.uint8),
-        np.isin(board, Item.Agent3.value).astype(np.uint8)
+    planes = [                                                  # Index
+        np.isin(board, Item.Passage.value).astype(np.uint8),    # 0
+        np.isin(board, Item.Rigid.value).astype(np.uint8),      # 1
+        np.isin(board, Item.Wood.value).astype(np.uint8),       # 2
+        np.isin(board, Item.Bomb.value).astype(np.uint8),       # 3
+        np.isin(board, Item.Flames.value).astype(np.uint8),     # 4
+        np.isin(board, Item.ExtraBomb.value).astype(np.uint8),  # 5
+        np.isin(board, Item.IncrRange.value).astype(np.uint8),  # 6
+        np.isin(board, Item.Kick.value).astype(np.uint8),       # 7
+        np.isin(board, Item.Agent0.value).astype(np.uint8),     # 8
+        np.isin(board, Item.Agent1.value).astype(np.uint8),     # 9
+        np.isin(board, Item.Agent2.value).astype(np.uint8),     # 10
+        np.isin(board, Item.Agent3.value).astype(np.uint8)#,     # 11
+        #np.isin(board, Item.Fog.value).astype(np.uint8)         # 12
     ]
     if p_obs:
         planes = _centralize_planes_partial(planes, obs['position'])
