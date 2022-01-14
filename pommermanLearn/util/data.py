@@ -1,5 +1,6 @@
 import numpy as np
 from pommerman.constants import Item
+from util.analytics import Stopwatch
 
 
 def transform_observation(obs, p_obs=False, centralized=False):
@@ -14,7 +15,6 @@ def transform_observation(obs, p_obs=False, centralized=False):
     :return: A stack of binary planes
     """
     features = {}
-
     board = obs['board']
     planes = [
         np.isin(board, Item.Passage.value).astype(np.uint8),
@@ -60,23 +60,21 @@ def _centralize_planes_partial(planes, pos):
     board_length = len(planes[0][0])
     for p in planes:
         partial = np.zeros((central_b_size, central_b_size))
-        for i in range(0, central_b_size):
-            for j in range(0, central_b_size):
-                plane_x = (pos[0] + i - b_size + 1)
-                plane_y = (pos[1] + j - b_size + 1)
-                if plane_x < 0 or plane_x >= board_length or plane_y < 0 or plane_y >= board_length:
-                    ins = 0
-                else:
-                    partial[i][j] = p[plane_x][plane_y]
-        partial_planes.append(partial)
-    outside_board = np.zeros((central_b_size, central_b_size))
 
+        partial[max((b_size-1) - pos[0], 0):min(board_length - pos[0] + b_size-1, central_b_size),
+        max((b_size-1) - pos[1], 0):min(board_length - pos[1] + b_size-1, central_b_size)] = \
+            p[max(pos[0] - (b_size - 1), 0):min(board_length, pos[0] + (b_size)),
+            max(pos[1] - (b_size - 1), 0):min(board_length, pos[1] + (b_size))]
+        partial_planes.append(partial)
+
+    outside_board = np.zeros((central_b_size, central_b_size))
     for i in range(0, central_b_size):
         for j in range(0, central_b_size):
             plane_x = (pos[0] + i - b_size + 1)
             plane_y = (pos[1] + j - b_size + 1)
             if plane_x < 0 or plane_x >= board_length or plane_y < 0 or plane_y >= board_length:
                 outside_board[i][j] = 1.0
+
     partial_planes.append(outside_board)
     return partial_planes
 
