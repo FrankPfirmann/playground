@@ -48,6 +48,7 @@ def test_pommerman_dqn():
 
     run_name=datetime.now().strftime("%Y%m%dT%H%M%S")
     log_dir=os.path.join("./data/tensorboard/", run_name)
+    logging.info(f"Staring run {run_name}")
     writer = SummaryWriter(log_dir=log_dir)
 
     for i in range(p.num_iterations):
