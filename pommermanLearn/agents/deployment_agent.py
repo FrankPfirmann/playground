@@ -25,7 +25,7 @@ class DeploymentAgent(BaseAgent, DockerAgentRunner):
         """
         super(DeploymentAgent, self).__init__()
         self.device = torch.device("cpu")
-        model_dir="./data/models/deployment"
+        model_dir="./data/models/deployment.pkl"
 
         q = Pommer_Q(11*2-1, transform_observation_centralized)
         q_target = Pommer_Q(11*2-1, transform_observation_centralized)
