@@ -13,7 +13,7 @@ agent_list=[
     SimpleAgent(),
     SimpleAgent()
 ]
-env = pm.make("PommeFFACompetition-v0", agent_list)
+env = pm.make("PommeRadioCompetition-v2", agent_list)
 
 obs=env.reset()
 done=False
