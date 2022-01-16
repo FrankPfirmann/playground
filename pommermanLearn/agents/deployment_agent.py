@@ -24,15 +24,13 @@ class DeploymentAgent(BaseAgent, DockerAgentRunner):
         :param policy: The pytorch model to train
         """
         super(DeploymentAgent, self).__init__()
-        self.device = torch.device("cpu")
         model_dir="./data/models/deployment.pkl"
 
         q = Pommer_Q(11*2-1, transform_observation_partial)
         q_target = Pommer_Q(11*2-1, transform_observation_partial)
 
-        algo = DQN(q, q_target)
+        algo = DQN(q, q_target, is_train=False, device=torch.device("gpu"))
         algo.q_network.load_state_dict(torch.load(model_dir))
-        algo.set_train(False)
         self.policy = algo.get_policy()
 
         #self.agent=TrainAgent(policy=self.policy)
