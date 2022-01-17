@@ -1,5 +1,4 @@
 
-import torch
 from pommerman import agents
 
 class TrainAgent(agents.BaseAgent):
@@ -15,7 +14,6 @@ class TrainAgent(agents.BaseAgent):
         """
         super(TrainAgent, self).__init__()
         self.policy = policy
-        self.device = torch.device("cpu")
 
     def act(self, obs, action_space):
         act = self.policy(obs)
