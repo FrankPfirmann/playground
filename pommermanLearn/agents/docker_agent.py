@@ -15,7 +15,7 @@ class DockerAgent(DockerAgentRunner):
         q = Pommer_Q(11*2-1, transform_observation_partial)
         q_target = Pommer_Q(11*2-1, transform_observation_partial)
 
-        algo = DQN(q, q_target, is_train=False, device=torch.device("gpu"))
+        algo = DQN(q, q_target, is_train=False, device=torch.device("cuda"))
         algo.q_network.load_state_dict(torch.load(model_dir))
 
         self._agent=TrainAgent(policy=algo.get_policy())
