@@ -5,9 +5,9 @@ from models import Pommer_Q
 from dqn import DQN
 from util.data import transform_observation_partial
 
-class DeploymentAgent(DockerAgentRunner):
+class DockerAgent(DockerAgentRunner):
     """
-    An agent for deployment.
+    An agent that exposes a REST API for usage in a docker container.
     """
     def __init__(self):
         model_dir="./data/models/deployment.pkl"

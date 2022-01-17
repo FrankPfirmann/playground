@@ -1,10 +1,12 @@
 """Implementation of a simple deterministic agent using Docker."""
 
-from agents.deployment_agent import DeploymentAgent
+from agents.docker_agent import DockerAgent
 
 def main():
-    '''Inits and runs a Docker Agent'''
-    agent = DeploymentAgent()
+    """
+    Inits and runs a Docker Agent
+    """
+    agent = DockerAgent()
     agent.run()
 
 
