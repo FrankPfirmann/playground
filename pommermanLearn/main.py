@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# solve error #15
+import os    
+os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
 import argparse
 import logging
@@ -91,8 +94,8 @@ def test_pommerman_dqn():
         if i % p.intermediate_test == p.intermediate_test-1:
             test_stopwatch=Stopwatch(start=True)
             logging.info("Testing model")
-            #Keep exploring in testing for now to avoid deadlocks
-            algo.set_train(True)
+            
+            algo.set_train(False)
             policy = algo.get_policy()
             
             model_save_path = log_dir + "/" + str(i)
