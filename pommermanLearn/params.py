@@ -10,6 +10,7 @@ centralize_planes = True
 render_tests = False
 env = 'PommeTeamCompetition-v0'  # PommeFFACompetition-v0 or OneVsOne-v0 or PommeTeamCompetition-v0
 episode_backward = False
+p_observable = True
 #dqn.py
 
 seed = 1

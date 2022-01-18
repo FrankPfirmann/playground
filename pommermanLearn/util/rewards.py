@@ -72,7 +72,7 @@ def skynet_reward(obs, act, nobs, fifo, agent_inds, log):
             continue
         log_ind = 0 if i <= 1 else 1
         teammate_ind = i + 2 if log_ind == 0 else i - 2
-        dist = calc_dist(i, nobs, teammate_ind)
+        dist = calc_dist(i, nobs, teammate_ind) if len(obs) == 4 else calc_dist(i, nobs)
         n_enemies_prev = 0
         alive_prev = obs[i]['alive']
         for e in obs[i]['enemies']:
@@ -114,8 +114,8 @@ def skynet_reward(obs, act, nobs, fifo, agent_inds, log):
             r[i] += 0.001
             log[log_ind][2] += 0.001
         if act[i] == 5:
-            r[i] += 0.025 / dist
-            log[log_ind][3] += 0.025 / dist
+            r[i] += 0.01 / dist
+            log[log_ind][3] += 0.01 / dist
         if len(fifo[i]) == 121:
             fifo[i].pop()
         fifo[i].append(cur_position)

@@ -6,6 +6,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import params as p
 from action_prune import get_filtered_actions
+from models import Pommer_Q
 
 from torch.optim import Adam
 
@@ -13,8 +14,20 @@ from torch.optim import Adam
 # inspired by https://github.com/KaleabTessera/DQN-Atari/blob/master/dqn/agent.py
 
 class DQN(object):
-    def __init__(self, q_network, q_target_network, is_train=True):
-        self.device = torch.device("cpu")
+    def __init__(self, q_network: Pommer_Q, q_target_network: Pommer_Q, is_train: bool=True, device: torch.device=None):
+        """
+        Create a new DQN model for training or inference.
+
+        :param q_network: The train network
+        :param q_target_network: The stable network
+        :param is_train: If True, random exploration is enabled
+        :param device: If set, use the given device. Otherwise use the CPU.
+        """
+        if device is None:
+            self.device = torch.device("cpu")
+        else:
+            self.device = device
+
         # Define q and q_target
         self.q_network = q_network
         self.q_target_network = q_target_network
@@ -33,7 +46,7 @@ class DQN(object):
             valid_actions_transformed = []
             for i in range(6):
                 valid_actions_transformed += [1] if i in valid_actions else [float("NaN")]
-            valid_actions_transformed = torch.FloatTensor(valid_actions_transformed).to(torch.device("cpu")).unsqueeze(0)
+            valid_actions_transformed = torch.FloatTensor(valid_actions_transformed).to(self.device).unsqueeze(0)
 
             obs = self.q_network.get_transformer()(obs)
             obs = [torch.FloatTensor(o).to(self.device).unsqueeze(0) for o in obs]

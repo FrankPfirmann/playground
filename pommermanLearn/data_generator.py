@@ -1,12 +1,14 @@
 import logging
 from collections import deque
 
+from agents.skynet_agents import SmartRandomAgent
 from logger import Logger
 import random
 from typing import Callable
 
 import numpy as np
 import pommerman
+from pommerman.agents import SimpleAgent
 from pommerman.constants import Item
 import torch
 import sys
@@ -35,7 +37,8 @@ class DataGeneratorPommerman:
         self.episode_buffer = []
 
         self.agents_n = 2 if self.env == 'OneVsOne-v0' else 4
-        self.buffers = [[] for _ in range(int(self.agents_n/2))]
+        self.player_agents_n = int(self.agents_n/2)
+        self.buffers = [[] for _ in range(self.player_agents_n)]
         self.idx = 0
         self.augmenter = augmenter
 
@@ -124,34 +127,38 @@ class DataGeneratorPommerman:
                 if render and i_episode == 0:
                     env.render()
                 act = env.act(obs)
-                act_counts[int(act[agent_inds[0]])] += 1
-                act_counts[int(act[agent_inds[1]])] += 1
+                for j in range(self.player_agents_n):
+                    act_counts[int(act[agent_inds[j]])] += 1
                 nobs, rwd, done, _ = env.step(act)
                 if p.reward_func == "SkynetReward":
                     skynet_rwds = skynet_reward(obs, act, nobs, fifo, agent_inds, skynet_reward_log)
 
-                for i in range(2):
+                for i in range(self.player_agents_n):
                     if p.reward_func == "SkynetReward":
                         agt_rwd = skynet_rwds[agent_inds[i]]
                     elif p.reward_func == "BombReward":
                         agt_rwd = bomb_reward(nobs, act, agent_inds[i])/100
                     else:
                         agt_rwd = staying_alive_reward(nobs, agent_ids[i])
-
+                    if done:
+                        winner = np.where(np.array(rwd) == 1)[0]
+                        if agent_inds[0] in winner:
+                            agt_rwd = 0.5
+                            logging.info(f"Win rewarded with {agt_rwd} for each living agent")
                     #draw reward
                     if steps_n == p.max_steps:
                         done = True
                         if agent_list[agent_inds[i]].is_alive:
-                            agt_rwd = -1
+                            agt_rwd = -0.5
                             logging.info(f"Draw rewarded with {agt_rwd} for each living agent")
                     #death reward
                     if alive[i] and agent_ids[i] not in nobs[agent_inds[i]]['alive']:
-                        agt_rwd = -1
+                        agt_rwd = -0.5
                         logging.info(f"Death of agent {agent_inds[i]} rewarded with {agt_rwd}")
-
                     if alive[i]:
                         # Build original transition
-                        transition = (transformer(obs[agent_inds[i]]), act[agent_inds[i]], agt_rwd*100, transformer(nobs[agent_inds[i]]), not alive)
+                        transition = (transformer(obs[agent_inds[i]]), act[agent_inds[i]], agt_rwd*100, \
+                                      transformer(nobs[agent_inds[i]]), done)
                         transitions = [transition]
                         # Create new transitions
                         for augmentor in self.augmenter:
@@ -166,10 +173,9 @@ class DataGeneratorPommerman:
                             else:
                                 self.add_to_episode_buffer(i, *t)
 
-                    alive[i] = agent_ids[i] in nobs[agent_inds[i]]['alive']
                     if alive[i]:
                         ep_rwd += agt_rwd
-
+                    alive[i] = agent_ids[i] in nobs[agent_inds[i]]['alive']
                 obs = nobs
                 steps_n += 1
             if p.episode_backward:
@@ -181,10 +187,15 @@ class DataGeneratorPommerman:
             winner = np.where(np.array(rwd) == 1)[0]
             if len(winner) == 0:
                 ties += 1
-            elif agent_inds[0] in winner or agent_inds[1] in winner:
-                res[0] += 1
             else:
-                res[1] += 1
+                k = True
+                for i in range(self.player_agents_n):
+                    if agent_inds[i] in winner:
+                        res[0] += 1
+                        k = False
+                        break
+                if k:
+                    res[1] += 1
 
             env.close()
         avg_rwd /= episodes
