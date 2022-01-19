@@ -1,4 +1,4 @@
-FROM python:3.6-slim
+FROM python:3.6
 
 # @TODO to be replaced with `pip install pommerman`
 ADD . /pommerman
