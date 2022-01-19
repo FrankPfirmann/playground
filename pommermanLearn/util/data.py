@@ -1,6 +1,7 @@
 import numpy as np
 from pommerman.constants import Item
-from util.analytics import Stopwatch
+
+from pommermanLearn.util.analytics import Stopwatch
 
 
 def transform_observation(obs, p_obs=False, centralized=False):

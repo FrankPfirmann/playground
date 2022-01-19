@@ -7,7 +7,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 #TODO: express model structure as param
 from pommerman.constants import Item
-from util.data import transform_observation, transform_observation_centralized
+
+from pommermanLearn.util.data import transform_observation, transform_observation_centralized
 ## takes in a module and applies the specified weight initialization
 
 

@@ -5,11 +5,11 @@ import gym
 import torch
 from torch.utils.tensorboard import SummaryWriter
 import numpy as np
-import params as p
+import pommermanLearn.params as p
 
-from models import DQN_Q, Pommer_Q
-from data_generator import DataGeneratorGymDiscrete, DataGeneratorPommerman
-from dqn import DQN
+from pommermanLearn.models import DQN_Q, Pommer_Q
+from pommermanLearn.data_generator import DataGeneratorGymDiscrete, DataGeneratorPommerman
+from pommermanLearn.dqn import DQN
 
 
 

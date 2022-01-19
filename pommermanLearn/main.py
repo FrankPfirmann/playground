@@ -9,15 +9,15 @@ import sys
 import torch
 from torch.utils.tensorboard import SummaryWriter
 import numpy as np
-import params as p
 from pommerman.constants import Action
 
-from data_augmentation import DataAugmentor_v1
-from data_generator import DataGeneratorPommerman
-from dqn import DQN
-from models import Pommer_Q
-from util.analytics import Stopwatch
-from util.data import transform_observation_simple, transform_observation_partial, transform_observation_centralized
+import pommermanLearn.params as p
+from pommermanLearn.data_augmentation import DataAugmentor_v1
+from pommermanLearn.data_generator import DataGeneratorPommerman
+from pommermanLearn.dqn import DQN
+from pommermanLearn.models import Pommer_Q
+from pommermanLearn.util.analytics import Stopwatch
+from pommermanLearn.util.data import transform_observation_simple, transform_observation_partial, transform_observation_centralized
 
 def test_pommerman_dqn():
     torch.manual_seed(p.seed)
@@ -43,7 +43,7 @@ def test_pommerman_dqn():
     data_generator = DataGeneratorPommerman(
 	p.env,
 	augmenter=[
-            DataAugmentor_v1()
+            #DataAugmentor_v1()
         ])
 
     run_name=datetime.now().strftime("%Y%m%dT%H%M%S")

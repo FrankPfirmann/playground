@@ -1,9 +1,9 @@
 import torch
 from pommerman.runner import DockerAgentRunner
-from agents.train_agent import TrainAgent
-from models import Pommer_Q
-from dqn import DQN
-from util.data import transform_observation_partial
+from pommermanLearn.agents.train_agent import TrainAgent
+from pommermanLearn.models import Pommer_Q
+from pommermanLearn.dqn import DQN
+from pommermanLearn.util.data import transform_observation_partial
 
 class DockerAgent(DockerAgentRunner):
     """

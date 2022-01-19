@@ -1,6 +1,6 @@
 """Implementation of a simple deterministic agent using Docker."""
 
-from agents.docker_agent import DockerAgent
+from pommermanLearn.agents.docker_agent import DockerAgent
 
 def main():
     """

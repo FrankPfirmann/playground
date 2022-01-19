@@ -6,10 +6,12 @@
 
 An agent that preforms a random action each step
 '''
+import random
+
 from pommerman.agents import BaseAgent
 from pommerman.constants import Action
-import action_prune
-import random
+
+import pommermanLearn.action_prune
 
 class RandomAgent(BaseAgent):
     """The Random Agent that returns random actions given an action_space."""
