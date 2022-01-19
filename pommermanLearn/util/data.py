@@ -103,3 +103,23 @@ def calc_dist(agent_ind, nobs, teammate_ind=-1):
          in other_inds])
     dist = max(1.0, dist)
     return dist
+
+def merge_views(first, second, fov, forgetfullness=0.0):
+    """
+    Merge the first and second view in the field of view and forget data
+    outside of it.
+
+    :param first: A numpy array respresenting the first view
+    :param second: A numpy array respresenting the second view
+    :param fov: A binary numpy array respresenting the field of view
+    :param forgetfullness: A value ranging from 0.0 to 1.0 that reduces 
+        values outside the field of view.
+    """
+    assert first.shape == second.shape == fov.shape, f"Shapes of planes to merge must match exactly, but first is {first.shape}, second is {second.shape} and fov is {fov.shape}"
+    assert forgetfullness >= 0.0 and forgetfullness <= 1.0, "forgetfullness must be a value in the range 0.0 to 1.0"  
+
+    remembrance=1-forgetfullness
+    fog = 1-fov
+
+    merged = second*fov + first*fog*remembrance
+    return merged
