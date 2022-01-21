@@ -17,19 +17,20 @@ def transform_observation(obs, p_obs=False, centralized=False):
     """
     features = {}
     board = obs['board']
+    plane_type=np.float64
     planes = [                                                  # Index
-        np.isin(board, Item.Passage.value).astype(np.uint8),    # 0
-        np.isin(board, Item.Rigid.value).astype(np.uint8),      # 1
-        np.isin(board, Item.Wood.value).astype(np.uint8),       # 2
-        np.isin(board, Item.Bomb.value).astype(np.uint8),       # 3
-        np.isin(board, Item.Flames.value).astype(np.uint8),     # 4
-        np.isin(board, Item.ExtraBomb.value).astype(np.uint8),  # 5
-        np.isin(board, Item.IncrRange.value).astype(np.uint8),  # 6
-        np.isin(board, Item.Kick.value).astype(np.uint8),       # 7
-        np.isin(board, Item.Agent0.value).astype(np.uint8),     # 8
-        np.isin(board, Item.Agent1.value).astype(np.uint8),     # 9
-        np.isin(board, Item.Agent2.value).astype(np.uint8),     # 10
-        np.isin(board, Item.Agent3.value).astype(np.uint8)#,     # 11
+        np.isin(board, Item.Passage.value).astype(plane_type),    # 0
+        np.isin(board, Item.Rigid.value).astype(plane_type),      # 1
+        np.isin(board, Item.Wood.value).astype(plane_type),       # 2
+        np.isin(board, Item.Bomb.value).astype(plane_type),       # 3
+        np.isin(board, Item.Flames.value).astype(plane_type),     # 4
+        np.isin(board, Item.ExtraBomb.value).astype(plane_type),  # 5
+        np.isin(board, Item.IncrRange.value).astype(plane_type),  # 6
+        np.isin(board, Item.Kick.value).astype(plane_type),       # 7
+        np.isin(board, Item.Agent0.value).astype(plane_type),     # 8
+        np.isin(board, Item.Agent1.value).astype(plane_type),     # 9
+        np.isin(board, Item.Agent2.value).astype(plane_type),     # 10
+        np.isin(board, Item.Agent3.value).astype(plane_type)#,     # 11
         #np.isin(board, Item.Fog.value).astype(np.uint8)         # 12
     ]
     if p_obs:
@@ -104,7 +105,7 @@ def calc_dist(agent_ind, nobs, teammate_ind=-1):
     dist = max(1.0, dist)
     return dist
 
-def merge_views(first, second, fov, forgetfullness=0.0):
+def merge_views(first: np.array, second: np.array, fov: np.array, forgetfullness: float=0.0):
     """
     Merge the first and second view in the field of view and forget data
     outside of it.

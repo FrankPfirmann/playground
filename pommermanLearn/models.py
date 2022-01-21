@@ -9,6 +9,7 @@ import torch.nn.functional as F
 from pommerman.constants import Item
 
 from pommermanLearn.util.data import transform_observation, transform_observation_centralized
+from pommermanLearn.util.data import merge_views
 ## takes in a module and applies the specified weight initialization
 
 
@@ -30,6 +31,7 @@ class Pommer_Q(nn.Module):
         self.pool_kernel_stride = 2
         self.last_cnn_depth = 32
         self.input_dim = 256
+        self.p_obs=p_obs
         self.planes_num = 13 if p_obs else 12
         self.padding = 1 if p_obs else 0
         self.use_memory = False
@@ -57,30 +59,37 @@ class Pommer_Q(nn.Module):
         #self.conv.apply(init_weights)
         #self.linear.apply(init_weights)
         #self.combined.apply(init_weights)
+    
+    def validate_memory(self, nobs):
+        if self.memory is None:
+            return False
+
+        if self.memory[0].shape != nobs[0].shape:
+            return False
+        
+        if self.memory[1].shape != nobs[1].shape:
+            return False
+
+        return True
+
 
     def update_memory(self, nobs):
-        if self.memory is None:
+        if self.memory is None or not self.validate_memory(nobs):
             self.memory = nobs
             return
 
-        forgetfulness=1/9
-        remembrance=1-forgetfulness
-        outer = nobs[0][..., 12, :, :]
-        inner = 1-outer
+        # Invert fog to get field of view
+        fov = 1-nobs[0][..., 12, :, :]
 
-        #print(inner)
-        #print(outer)
-        #print(nobs[0][..., 2, :, :])
-
-        # Combine new view and view from memory of walls and passages
-        for layer in [0, 1]:
-            nobs[0][..., layer, :, :] = self.memory[0][..., layer, :, :] + nobs[0][..., layer, :, :]
-
-        # Update inner view and forget outer view for all other layers
-        for layer in [2,3,4,5,6,7,8,9,10,11]:
-            # Take inner observations as given and reduce the value of outer obserations
-            nobs[0][..., layer, :, :] = nobs[0][..., layer, :, :]*inner*remembrance + nobs[0][..., layer, :, :]*outer
-        #print(nobs[0][..., 2, :, :])
+        for layer in range(12):
+            if layer in [0,1]: # Remember walls and passages always
+                forgetfulness=0.0
+            else: # Forget other layers that are out of view slowly
+                forgetfulness=0.05
+            first = self.memory[0][..., layer, :, :]
+            second = nobs[0][..., layer, :, :]
+            merged = merge_views(first, second, fov, forgetfullness=forgetfulness)
+            nobs[0][..., layer, :, :] = merged
 
         self.memory = nobs
 
@@ -92,7 +101,8 @@ class Pommer_Q(nn.Module):
 
     def forward(self, obs):
         if self.use_memory and self.p_obs:
-            raise NotImplemented("Board memory is currently not implemented!")
+            # Memory in this form only makes sense with partial
+            # observability
             self.update_memory(obs)
             obs = self.memory
 
