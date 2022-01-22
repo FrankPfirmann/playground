@@ -1,5 +1,4 @@
 # main.py
-
 num_iterations = 1000000
 episodes_per_iter = 1
 gradient_steps_per_iter = 10
@@ -11,8 +10,8 @@ render_tests = False
 env = 'PommeTeamCompetition-v0'  # PommeFFACompetition-v0 or OneVsOne-v0 or PommeTeamCompetition-v0
 episode_backward = False
 p_observable = True
-#dqn.py
 
+#dqn.py
 seed = 1
 
 gamma = 0.99
@@ -32,3 +31,6 @@ exploration_noise = 0.1
 replay_size = 50000
 max_steps = 800
 reward_func = 'SkynetReward' #SkynetReward, BombReward
+
+#models.py
+use_memory=False

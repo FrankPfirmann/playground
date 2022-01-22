@@ -12,9 +12,9 @@ import sys
 import torch
 from torch.utils.tensorboard import SummaryWriter
 import numpy as np
-import params as p
 from pommerman.constants import Action
 
+import params as p
 from data_augmentation import DataAugmentor_v1
 from data_generator import DataGeneratorPommerman
 from dqn import DQN
@@ -46,7 +46,7 @@ def test_pommerman_dqn():
     data_generator = DataGeneratorPommerman(
 	p.env,
 	augmenter=[
-            DataAugmentor_v1()
+            #DataAugmentor_v1()
         ])
 
     run_name=datetime.now().strftime("%Y%m%dT%H%M%S")

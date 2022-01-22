@@ -12,4 +12,4 @@ ENV NAME Agent
 # Run app.py when the container launches
 WORKDIR /pommerman
 ENTRYPOINT ["python"]
-CMD ["./pommermanLearn/run.py"]
+CMD ["./pommermanLearn/main.py"]

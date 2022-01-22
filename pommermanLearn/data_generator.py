@@ -1,8 +1,6 @@
 import logging
 from collections import deque
 
-from agents.skynet_agents import SmartRandomAgent
-from logger import Logger
 import random
 from typing import Callable
 
@@ -13,13 +11,15 @@ from pommerman.constants import Item
 import torch
 import sys
 
-import params as p
-from util.data import transform_observation
-from util.rewards import staying_alive_reward, go_down_right_reward, bomb_reward, skynet_reward
+from agents.skynet_agents import SmartRandomAgent
 from agents.static_agent import StaticAgent
 from agents.train_agent import TrainAgent
 from agents.simple_agent_cautious_bomb import CautiousAgent
 from data_augmentation import DataAugmentor
+from logger import Logger
+import params as p
+from util.data import transform_observation
+from util.rewards import staying_alive_reward, go_down_right_reward, bomb_reward, skynet_reward
 
 class DataGeneratorPommerman:
     def __init__(self, env, augmenter: list=[])-> None:

@@ -1,5 +1,6 @@
 import numpy as np
 from pommerman.constants import Item
+
 from util.analytics import Stopwatch
 
 
@@ -16,19 +17,20 @@ def transform_observation(obs, p_obs=False, centralized=False):
     """
     features = {}
     board = obs['board']
+    plane_type=np.float64
     planes = [                                                  # Index
-        np.isin(board, Item.Passage.value).astype(np.uint8),    # 0
-        np.isin(board, Item.Rigid.value).astype(np.uint8),      # 1
-        np.isin(board, Item.Wood.value).astype(np.uint8),       # 2
-        np.isin(board, Item.Bomb.value).astype(np.uint8),       # 3
-        np.isin(board, Item.Flames.value).astype(np.uint8),     # 4
-        np.isin(board, Item.ExtraBomb.value).astype(np.uint8),  # 5
-        np.isin(board, Item.IncrRange.value).astype(np.uint8),  # 6
-        np.isin(board, Item.Kick.value).astype(np.uint8),       # 7
-        np.isin(board, Item.Agent0.value).astype(np.uint8),     # 8
-        np.isin(board, Item.Agent1.value).astype(np.uint8),     # 9
-        np.isin(board, Item.Agent2.value).astype(np.uint8),     # 10
-        np.isin(board, Item.Agent3.value).astype(np.uint8)#,     # 11
+        np.isin(board, Item.Passage.value).astype(plane_type),    # 0
+        np.isin(board, Item.Rigid.value).astype(plane_type),      # 1
+        np.isin(board, Item.Wood.value).astype(plane_type),       # 2
+        np.isin(board, Item.Bomb.value).astype(plane_type),       # 3
+        np.isin(board, Item.Flames.value).astype(plane_type),     # 4
+        np.isin(board, Item.ExtraBomb.value).astype(plane_type),  # 5
+        np.isin(board, Item.IncrRange.value).astype(plane_type),  # 6
+        np.isin(board, Item.Kick.value).astype(plane_type),       # 7
+        np.isin(board, Item.Agent0.value).astype(plane_type),     # 8
+        np.isin(board, Item.Agent1.value).astype(plane_type),     # 9
+        np.isin(board, Item.Agent2.value).astype(plane_type),     # 10
+        np.isin(board, Item.Agent3.value).astype(plane_type)#,     # 11
         #np.isin(board, Item.Fog.value).astype(np.uint8)         # 12
     ]
     if p_obs:
@@ -102,3 +104,23 @@ def calc_dist(agent_ind, nobs, teammate_ind=-1):
          in other_inds])
     dist = max(1.0, dist)
     return dist
+
+def merge_views(first: np.array, second: np.array, fov: np.array, forgetfullness: float=0.0):
+    """
+    Merge the first and second view in the field of view and forget data
+    outside of it.
+
+    :param first: A numpy array respresenting the first view
+    :param second: A numpy array respresenting the second view
+    :param fov: A binary numpy array respresenting the field of view
+    :param forgetfullness: A value ranging from 0.0 to 1.0 that reduces 
+        values outside the field of view.
+    """
+    assert first.shape == second.shape == fov.shape, f"Shapes of planes to merge must match exactly, but first is {first.shape}, second is {second.shape} and fov is {fov.shape}"
+    assert forgetfullness >= 0.0 and forgetfullness <= 1.0, "forgetfullness must be a value in the range 0.0 to 1.0"  
+
+    remembrance=1-forgetfullness
+    fog = 1-fov
+
+    merged = second*fov + first*fog*remembrance
+    return merged
