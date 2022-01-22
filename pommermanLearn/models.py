@@ -8,6 +8,7 @@ import torch.nn.functional as F
 #TODO: express model structure as param
 from pommerman.constants import Item
 
+import params as p
 from util.data import transform_observation, transform_observation_centralized
 from util.data import merge_views
 ## takes in a module and applies the specified weight initialization
@@ -34,7 +35,7 @@ class Pommer_Q(nn.Module):
         self.p_obs=p_obs
         self.planes_num = 13 if p_obs else 12
         self.padding = 1 if p_obs else 0
-        self.use_memory = False
+        self.use_memory = p.use_memory
         self.memory = None
 
         self.conv = nn.Sequential(
