@@ -1,7 +1,7 @@
 import numpy as np
 
 from pommerman.constants import Item
-from pommermanLearn.util.data import calc_dist
+from util.data import calc_dist
 
 
 def staying_alive_reward(nobs, agent_id):

@@ -1,6 +1,6 @@
 import pytest
 import numpy as np
-from pommermanLearn.util.data import merge_views
+from util.data import merge_views
 
 first=np.array([
     [0.0, 0.0, 0.0, 0.0],

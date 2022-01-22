@@ -11,7 +11,7 @@ import random
 from pommerman.agents import BaseAgent
 from pommerman.constants import Action
 
-import pommermanLearn.action_prune
+import action_prune
 
 class RandomAgent(BaseAgent):
     """The Random Agent that returns random actions given an action_space."""
