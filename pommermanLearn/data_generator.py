@@ -66,6 +66,40 @@ class DataGeneratorPommerman:
         batch = list(zip(*random.sample(self.episode_buffer, 1)[0]))
         return np.array(batch[0]), np.array(batch[1]), np.array(batch[2]), np.array(batch[3]), np.array(batch[4])
 
+    def _init_agent_list(self, agent1, agent2, policy, setposition=False):
+        '''
+        Helper method for creating agent_list
+        :param agent1: string identifying agent1
+        :param agent2: string identifying agent2
+        :param policy: policy a train agent follows
+        :param setPosition: whether we initialize agent1 always on top left or randomly
+        :return: agent indexes, igent ids on board observation and agent list of agent objects
+        '''
+        agent_list = [None] * self.agents_n
+        agent_ind = 0 if setposition else np.random.randint(0, 1)
+        for i in range(0, self.agents_n):
+            agent_str = agent1 if (i + agent_ind) % 2 == 0 else agent2
+            if agent_str.startswith('static'):
+                _, action = agent_str.split(':')
+                agent_list[i] = StaticAgent(int(action))
+            elif agent_str == 'train':
+                agent_list[i] = TrainAgent(policy)
+            elif agent_str == 'smart_random':
+                agent_list[i] = SmartRandomAgent()
+            elif agent_str == 'simple':
+                agent_list[i] = SimpleAgent()
+            elif agent_str == 'cautious':
+                agent_list[i] = CautiousAgent()
+            else:
+                print('unsupported opponent type!')
+                sys.exit(1)
+        if self.agents_n == 2:
+            agent_inds = [0 + agent_ind]
+            agent_ids = [10 + agent_ind]
+        else:
+            agent_inds = [0 + agent_ind, 2 + agent_ind]
+            agent_ids = [10 + agent_ind, 12 + agent_ind]
+        return agent_inds, agent_ids, agent_list
 
     def generate(self, episodes: int, policy: Callable, transformer: Callable, render: bool=False) -> tuple:
         """
@@ -93,26 +127,7 @@ class DataGeneratorPommerman:
         fifo = [[] for _ in range(self.agents_n)]
         skynet_reward_log = [[0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0]]
         for i_episode in range(episodes):
-            agent_ind = np.random.randint(0, 1)
-            agent_list1 = [
-                        TrainAgent(policy),
-                        CautiousAgent(),
-                        TrainAgent(policy),
-                        CautiousAgent(),
-                        ]
-
-            agent_list2 = [
-                        CautiousAgent(),
-                        TrainAgent(policy),
-                        CautiousAgent(),
-                        TrainAgent(policy)
-                        ]
-            # get indices of agents
-            agent_inds = [0+agent_ind, 2+agent_ind]
-            agent_ids = [10+agent_ind, 12+agent_ind]
-
-            agent_list = agent_list1 if agent_ind == 0 else agent_list2
-            agent_id = 10 + agent_ind  # ID of training agent
+            agent_inds, agent_ids, agent_list = self._init_agent_list('train', 'static:0', policy, True)
 
             env = pommerman.make(self.env, agent_list)
             obs = env.reset()
@@ -140,16 +155,17 @@ class DataGeneratorPommerman:
                         agt_rwd = bomb_reward(nobs, act, agent_inds[i])/100
                     else:
                         agt_rwd = staying_alive_reward(nobs, agent_ids[i])
+                    #only living agent gets winning rewards
                     if done:
                         winner = np.where(np.array(rwd) == 1)[0]
                         if agent_inds[0] in winner:
                             agt_rwd = 0.5
                             logging.info(f"Win rewarded with {agt_rwd} for each living agent")
-                    #draw reward
+                    #draw reward for living agents
                     if steps_n == p.max_steps:
                         done = True
                         if agent_list[agent_inds[i]].is_alive:
-                            agt_rwd = -0.5
+                            agt_rwd = 0.0
                             logging.info(f"Draw rewarded with {agt_rwd} for each living agent")
                     #death reward
                     if alive[i] and agent_ids[i] not in nobs[agent_inds[i]]['alive']:

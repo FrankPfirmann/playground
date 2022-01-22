@@ -72,7 +72,6 @@ def skynet_reward(obs, act, nobs, fifo, agent_inds, log):
             continue
         log_ind = 0 if i <= 1 else 1
         teammate_ind = i + 2 if log_ind == 0 else i - 2
-        dist = calc_dist(i, nobs, teammate_ind) if len(obs) == 4 else calc_dist(i, nobs)
         n_enemies_prev = 0
         alive_prev = obs[i]['alive']
         for e in obs[i]['enemies']:
@@ -113,10 +112,26 @@ def skynet_reward(obs, act, nobs, fifo, agent_inds, log):
         if cur_position not in fifo[i]:
             r[i] += 0.001
             log[log_ind][2] += 0.001
-        if act[i] == 5:
-            r[i] += 0.01 / dist
-            log[log_ind][3] += 0.01 / dist
         if len(fifo[i]) == 121:
             fifo[i].pop()
         fifo[i].append(cur_position)
     return r
+
+def woods_close_to_bomb_reward(obs, bomb_pos, blast_strength, steps_n):
+    ''' returns the number ob wooden blocks that would be destroyed by a given bomb '''
+
+    num_wood = 0
+    board = obs['board']
+    wood_bitmap = np.isin(board, 2).astype(np.uint8)
+    wood_positions = np.where(wood_bitmap==1)
+    wood_positions = list(zip(wood_positions[0], wood_positions[1]))
+
+    # for every wooden block check if it would be destroyed
+    for wood_pos in wood_positions:
+        dist_wood_bomb = np.abs(np.array(list(wood_pos))-np.array(list(bomb_pos)))
+        if np.any(dist_wood_bomb == 0):
+            if np.all(dist_wood_bomb < blast_strength):
+                num_wood += 1
+    # for each wood close to bomb reward 0.1 discounted ober time
+    reward = (0.1 * num_wood) * (0.99**steps_n)
+    return reward
