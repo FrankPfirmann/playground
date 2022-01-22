@@ -34,3 +34,4 @@ reward_func = 'SkynetReward' #SkynetReward, BombReward
 
 #models.py
 use_memory=False
+forgetfullness=0.05

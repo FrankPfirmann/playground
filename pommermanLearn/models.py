@@ -86,7 +86,7 @@ class Pommer_Q(nn.Module):
             if layer in [0,1]: # Remember walls and passages always
                 forgetfulness=0.0
             else: # Forget other layers that are out of view slowly
-                forgetfulness=0.05
+                forgetfulness=p.forgetfullness
             first = self.memory[0][..., layer, :, :]
             second = nobs[0][..., layer, :, :]
             merged = merge_views(first, second, fov, forgetfullness=forgetfulness)
