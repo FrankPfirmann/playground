@@ -30,7 +30,6 @@ class DataGeneratorPommerman:
         """
         self.device = torch.device("cpu")
 
-
         self.env = env
         # Define replay pool
         self.buffer = []
@@ -44,16 +43,16 @@ class DataGeneratorPommerman:
 
         self.logger = Logger('log')
 
-    def add_to_buffer(self, obs, act, rwd, nobs, done):
-        if len(self.buffer) < p.replay_size:
-            self.buffer.append([obs, act, [rwd], nobs, [done]])
+    def add_to_buffer(self, obs, act, rwd, nobs, done, agent_num):
+        if len(self.buffers[agent_num]) < p.replay_size:
+            self.buffers[agent_num].append([obs, act, [rwd], nobs, [done]])
         else:
-            self.buffer[self.idx] = [obs, act, [rwd], nobs, [done]]
+            self.buffers[agent_num][self.idx] = [obs, act, [rwd], nobs, [done]]
         self.idx = (self.idx + 1) % p.replay_size
 
-    def get_batch_buffer(self, size):
-        batch = list(zip(*random.sample(self.buffer, size)))
-        return np.array(batch[0]), np.array(batch[1]), np.array(batch[2]), np.array(batch[3]), np.array(batch[4])
+    def get_batch_buffer(self, size, agent_num):
+        batch = list(zip(*random.sample(self.buffers[agent_num], size)))
+        return np.array(batch[0]), np.array(batch[1]), np.array(batch[2]), np.array(batch[3]), np.array(batch[4])    
 
     def add_to_episode_buffer(self, i, obs, act, rwd, nobs, done):
         if len(self.buffer) < p.replay_size:
@@ -66,24 +65,35 @@ class DataGeneratorPommerman:
         batch = list(zip(*random.sample(self.episode_buffer, 1)[0]))
         return np.array(batch[0]), np.array(batch[1]), np.array(batch[2]), np.array(batch[3]), np.array(batch[4])
 
-    def _init_agent_list(self, agent1, agent2, policy, setposition=False):
+    def _init_agent_list(self, agent1, agent2, policy1, policy2, enemy, setposition=False):
         '''
         Helper method for creating agent_list
         :param agent1: string identifying agent1
         :param agent2: string identifying agent2
-        :param policy: policy a train agent follows
+        :param policy1: policy the first train agent follows
+        :param policy2: policy the second train agent follows
+        :param enemy: string identifying the enemy
         :param setPosition: whether we initialize agent1 always on top left or randomly
         :return: agent indexes, igent ids on board observation and agent list of agent objects
         '''
         agent_list = [None] * self.agents_n
-        agent_ind = 0 if setposition else np.random.randint(0, 1)
+        agent_ind = 0 if setposition else np.random.randint(2)
         for i in range(0, self.agents_n):
-            agent_str = agent1 if (i + agent_ind) % 2 == 0 else agent2
+            
+            if i == agent_ind:
+                agent_str = agent1 
+            elif i == agent_ind + 2:
+                agent_str = agent2
+            else:
+                agent_str = enemy
+
             if agent_str.startswith('static'):
                 _, action = agent_str.split(':')
                 agent_list[i] = StaticAgent(int(action))
-            elif agent_str == 'train':
-                agent_list[i] = TrainAgent(policy)
+            elif agent_str == 'train' and i == agent_ind:
+                agent_list[i] = TrainAgent(policy1)
+            elif agent_str == 'train' and i == agent_ind + 2:
+                agent_list[i] = TrainAgent(policy2)
             elif agent_str == 'smart_random':
                 agent_list[i] = SmartRandomAgent()
             elif agent_str == 'simple':
@@ -101,7 +111,7 @@ class DataGeneratorPommerman:
             agent_ids = [10 + agent_ind, 12 + agent_ind]
         return agent_inds, agent_ids, agent_list
 
-    def generate(self, episodes: int, policy: Callable, transformer: Callable, render: bool=False) -> tuple:
+    def generate(self, episodes: int, policy1: Callable, policy2: Callable, transformer: Callable, render: bool=False) -> tuple:
         """
         Generate ``episodes`` samples acting by ``policy`` and saving
         observations transformed with ``transformer``.
@@ -118,16 +128,16 @@ class DataGeneratorPommerman:
             counts, average steps
         """
 
-
         res = np.array([0.0] * 2)
-        act_counts = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        act_counts = [[0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                    [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]]
         ties = 0.0
         avg_rwd = 0.0
         avg_steps = 0.0
         fifo = [[] for _ in range(self.agents_n)]
         skynet_reward_log = [[0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0]]
         for i_episode in range(episodes):
-            agent_inds, agent_ids, agent_list = self._init_agent_list('train', 'static:0', policy, True)
+            agent_inds, agent_ids, agent_list = self._init_agent_list('train', 'train', policy1, policy2, 'static:0', False)
 
             env = pommerman.make(self.env, agent_list)
             obs = env.reset()
@@ -143,7 +153,7 @@ class DataGeneratorPommerman:
                     env.render()
                 act = env.act(obs)
                 for j in range(self.player_agents_n):
-                    act_counts[int(act[agent_inds[j]])] += 1
+                    act_counts[j][int(act[agent_inds[j]])] += 1
                 nobs, rwd, done, _ = env.step(act)
                 if p.reward_func == "SkynetReward":
                     skynet_rwds = skynet_reward(obs, act, nobs, fifo, agent_inds, skynet_reward_log)
@@ -185,7 +195,7 @@ class DataGeneratorPommerman:
                         # Add everything to the buffer
                         for t in transitions:
                             if not p.episode_backward:
-                                self.add_to_buffer(*t)
+                                self.add_to_buffer(*t, i)
                             else:
                                 self.add_to_episode_buffer(i, *t)
 
