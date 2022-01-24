@@ -11,7 +11,7 @@ from pommerman.constants import Item
 import torch
 import sys
 
-from agents.skynet_agents import SmartRandomAgent
+from agents.skynet_agents import SmartRandomAgent, SmartRandomAgentNoBomb
 from agents.static_agent import StaticAgent
 from agents.train_agent import TrainAgent
 from agents.simple_agent_cautious_bomb import CautiousAgent
@@ -22,11 +22,11 @@ from util.data import transform_observation
 from util.rewards import staying_alive_reward, go_down_right_reward, bomb_reward, skynet_reward
 
 class DataGeneratorPommerman:
-    def __init__(self, env, augmenter: list=[])-> None:
+    def __init__(self, env, augmentors: list=[])-> None:
         """
         Create a new DataGenerator instance.
 
-        :param augmenter: A list of DataAugmentor derivates
+        :param augmentors: A list of DataAugmentor derivates
         """
         self.device = torch.device("cpu")
 
@@ -39,7 +39,7 @@ class DataGeneratorPommerman:
         self.player_agents_n = int(self.agents_n/2)
         self.buffers = [[] for _ in range(self.player_agents_n)]
         self.idx = 0
-        self.augmenter = augmenter
+        self.augmentors = augmentors
 
         self.logger = Logger('log')
 
@@ -96,6 +96,8 @@ class DataGeneratorPommerman:
                 agent_list[i] = TrainAgent(policy2)
             elif agent_str == 'smart_random':
                 agent_list[i] = SmartRandomAgent()
+            elif agent_str == 'smart_random_no_bomb':
+                agent_list[i] = SmartRandomAgentNoBomb()
             elif agent_str == 'simple':
                 agent_list[i] = SimpleAgent()
             elif agent_str == 'cautious':
@@ -111,13 +113,14 @@ class DataGeneratorPommerman:
             agent_ids = [10 + agent_ind, 12 + agent_ind]
         return agent_inds, agent_ids, agent_list
 
-    def generate(self, episodes: int, policy1: Callable, policy2: Callable, transformer: Callable, render: bool=False) -> tuple:
+    def generate(self, episodes: int, policy1: Callable, policy2: Callable, enemy: str, transformer: Callable, max_steps: int, render: bool=False) -> tuple:
         """
         Generate ``episodes`` samples acting by ``policy`` and saving
         observations transformed with ``transformer``.
 
         :param episodes: The number of episodes to generate
         :param policy: A callable policy to use for action selection
+        :param: String identifying the enemy
         :param transformer: A callable transformer to use for input
             transformation
         :param render: If ``True`` the environment will be rendered in a
@@ -137,7 +140,7 @@ class DataGeneratorPommerman:
         fifo = [[] for _ in range(self.agents_n)]
         skynet_reward_log = [[0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0]]
         for i_episode in range(episodes):
-            agent_inds, agent_ids, agent_list = self._init_agent_list('train', 'train', policy1, policy2, 'static:0', False)
+            agent_inds, agent_ids, agent_list = self._init_agent_list('train', 'train', policy1, policy2, enemy, True)
 
             env = pommerman.make(self.env, agent_list)
             obs = env.reset()
@@ -167,12 +170,12 @@ class DataGeneratorPommerman:
                         agt_rwd = staying_alive_reward(nobs, agent_ids[i])
                     #only living agent gets winning rewards
                     if done:
-                        winner = np.where(np.array(rwd) == 1)[0]
+                        winner = np.where(np.array(rwd) == 1)[0] # TODO even dead agents get reward?
                         if agent_inds[0] in winner:
                             agt_rwd = 0.5
                             logging.info(f"Win rewarded with {agt_rwd} for each living agent")
                     #draw reward for living agents
-                    if steps_n == p.max_steps:
+                    if steps_n == max_steps:
                         done = True
                         if agent_list[agent_inds[i]].is_alive:
                             agt_rwd = 0.0
@@ -187,7 +190,7 @@ class DataGeneratorPommerman:
                                       transformer(nobs[agent_inds[i]]), done)
                         transitions = [transition]
                         # Create new transitions
-                        for augmentor in self.augmenter:
+                        for augmentor in self.augmentors:
                             transition_augmented = augmentor.augment(obs[agent_inds[i]], act[agent_inds[i]], agt_rwd*100, nobs[agent_inds[i]], not alive)
                             for t in transition_augmented:
                                 transitions.append((transformer(t[0]), t[1], t[2]*100, transformer(t[3]), t[4]))

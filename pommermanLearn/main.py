@@ -22,7 +22,7 @@ from models import Pommer_Q
 from util.analytics import Stopwatch
 from util.data import transform_observation_simple, transform_observation_partial, transform_observation_centralized
 
-def test_pommerman_dqn():
+def train_dqn(model1=None, model2=None, num_iterations=p.num_iterations, episodes_per_iter=p.episodes_per_iter, augmentors=[], enemy='static:0', max_steps=p.max_steps) :
     torch.manual_seed(p.seed)
     np.random.seed(p.seed)
     random.seed(p.seed)
@@ -34,59 +34,67 @@ def test_pommerman_dqn():
     else:
         transform_func = transform_observation_simple
 
-    # Initialize 2 DQNs
-    q1 = Pommer_Q(p.p_observable, transform_func)
-    q_target1 = Pommer_Q(p.p_observable, transform_func)
-    algo1 = DQN(q1, q_target1)
-    q2 = Pommer_Q(p.p_observable, transform_func)
-    q_target2 = Pommer_Q(p.p_observable, transform_func)
-    algo2 = DQN(q2, q_target2)
+    # initialize DQN and data generator 
+    if model1 == None:
+        q1 = Pommer_Q(p.p_observable, transform_func)
+        q_target1 = Pommer_Q(p.p_observable, transform_func)
+        algo1 = DQN(q1, q_target1)
+    else:
+        algo1 = model1   
+
+    if model1 == None:
+        q2 = Pommer_Q(p.p_observable, transform_func)
+        q_target2 = Pommer_Q(p.p_observable, transform_func)
+        algo2 = DQN(q2, q_target2)
+    else:
+        algo2 = model2  
 
     data_generator = DataGeneratorPommerman(
-	p.env,
-	augmenter=[
-            #DataAugmentor_v1()
-        ])
+	    p.env,
+	    augmentors=augmentors
+    )
 
+    # start logging
     run_name=datetime.now().strftime("%Y%m%dT%H%M%S")
     log_dir=os.path.join("./data/tensorboard/", run_name)
     logging.info(f"Staring run {run_name}")
     writer = SummaryWriter(log_dir=log_dir)
 
-    for i in range(p.num_iterations):
-        logging.info(f"Iteration {i+1}/{p.num_iterations} started")
+    # training loop
+    for i in range(num_iterations):
+        logging.info(f"Iteration {i+1}/{num_iterations} started")
         iteration_stopwatch = Stopwatch(start=True)
         policy1 = algo1.get_policy()
         policy2 = algo2.get_policy()
 
-        res, ties, avg_rwd, act_counts, avg_steps = data_generator.generate(p.episodes_per_iter, policy1, policy2, q1.get_transformer())
-        # Normalize act_counts
+        # generate data an store normalized act counts and win ration
+        res, ties, avg_rwd, act_counts, avg_steps = data_generator.generate(episodes_per_iter, policy1, policy2, enemy, q1.get_transformer(), max_steps)
         act_counts[0] = [act/sum(act_counts[0]) for act in act_counts[0]]
         act_counts[1] = [act/sum(act_counts[1]) for act in act_counts[1]]
-        #The agents wins are stored at index 0 i the data_generator
         win_ratio = res[0] / (sum(res)+ties)
-        total_loss=0
 
         # fit models on generated data
+        total_loss=0
         gradient_step_stopwatch=Stopwatch(start=True)
         for _ in range(p.gradient_steps_per_iter):
             if p.episode_backward:
-                batch = data_generator.get_episode_buffer()
+                batch1 = data_generator.get_episode_buffer()
             else:
-                batch = data_generator.get_batch_buffer(p.batch_size, 0)
-            loss = algo1.train(batch)
+                batch1 = data_generator.get_batch_buffer(p.batch_size, 0)
+            loss = algo1.train(batch1)
             total_loss += loss
 
         for _ in range(p.gradient_steps_per_iter):
             if p.episode_backward:
-                batch = data_generator.get_episode_buffer()
+                batch2 = data_generator.get_episode_buffer()
             else:
-                batch = data_generator.get_batch_buffer(p.batch_size, 1)
-            loss=algo2.train(batch)
+                batch2 = data_generator.get_batch_buffer(p.batch_size, 1)
+            loss=algo2.train(batch2)
             total_loss+=loss
         avg_loss=total_loss/p.gradient_steps_per_iter
-        logging.debug(f"{p.gradient_steps_per_iter/gradient_step_stopwatch.stop()} gradient steps/s")
 
+        # logging
+        logging.debug(f"{p.gradient_steps_per_iter/gradient_step_stopwatch.stop()} gradient steps/s")
         writer.add_scalar('Avg. Loss/train', avg_loss, i)
         writer.add_scalar('Avg. Reward/train', avg_rwd, i)
         writer.add_scalar('Win Ratio/train', win_ratio, i)
@@ -107,7 +115,7 @@ def test_pommerman_dqn():
             '#Right': act_counts[1][Action.Right.value],
             '#Bomb': act_counts[1][Action.Bomb.value]
         }, i)
-        logging.debug(f"Iteration {i+1}/{p.num_iterations} finished after {iteration_stopwatch.stop()}s")
+        logging.debug(f"Iteration {i+1}/{num_iterations} finished after {iteration_stopwatch.stop()}s")
 
         # Do intermediate tests and save models
         logging.info("------------------------")
@@ -128,6 +136,7 @@ def test_pommerman_dqn():
             logging.debug(f"Test finished after {test_stopwatch.stop()}s")
             logging.info("------------------------")
     writer.close()
+    return algo1 , algo2
 
 def setup_logger(log_level=logging.INFO):
     """
@@ -152,7 +161,9 @@ def main(args):
 
     p.num_iterations=args.iterations
 
-    test_pommerman_dqn()
+    model1, model2 = train_dqn(num_iterations=2000, enemy='static:0', augmentors=[DataAugmentor_v1()], max_steps=300)
+    model1, model2 = train_dqn(model1=model1, model2=model2, num_iterations=1000, enemy='static:0', augmentors=[DataAugmentor_v1()])
+    model1, model2 = train_dqn(model1=model1, model2=model2, num_iterations=10000, enemy='smart_random_no_bomb', augmentors=[DataAugmentor_v1()])
 
 # Only run main() if script if executed explicitly
 if __name__ == '__main__':
