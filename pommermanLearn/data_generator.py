@@ -113,7 +113,7 @@ class DataGeneratorPommerman:
             agent_ids = [10 + agent_ind, 12 + agent_ind]
         return agent_inds, agent_ids, agent_list
 
-    def generate(self, episodes: int, policy1: Callable, policy2: Callable, enemy: str, transformer: Callable, max_steps: int, render: bool=False) -> tuple:
+    def generate(self, episodes: int, policy1: Callable, policy2: Callable, enemy: str, transformer: Callable, max_steps: int=p.max_steps, render: bool=False) -> tuple:
         """
         Generate ``episodes`` samples acting by ``policy`` and saving
         observations transformed with ``transformer``.

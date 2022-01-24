@@ -130,7 +130,7 @@ def train_dqn(model1=None, model2=None, num_iterations=p.num_iterations, episode
             torch.save(algo1.q_network.state_dict(), model_save_path + '_1')
             torch.save(algo2.q_network.state_dict(), model_save_path + '_2')
             logging.info("Saved model to: " + model_save_path)
-            data_generator.generate(p.episodes_per_eval, policy1, policy2, q1.get_transformer(), render=p.render_tests)
+            data_generator.generate(p.episodes_per_eval, policy1, policy2, enemy, q1.get_transformer(), max_steps, render=p.render_tests)
             algo1.set_train(True)
             algo2.set_train(True)
             logging.debug(f"Test finished after {test_stopwatch.stop()}s")
@@ -161,8 +161,8 @@ def main(args):
 
     p.num_iterations=args.iterations
 
-    model1, model2 = train_dqn(num_iterations=2000, enemy='static:0', augmentors=[DataAugmentor_v1()], max_steps=300)
-    model1, model2 = train_dqn(model1=model1, model2=model2, num_iterations=1000, enemy='static:0', augmentors=[DataAugmentor_v1()])
+    model1, model2 = train_dqn(num_iterations=3000, enemy='static:0', augmentors=[DataAugmentor_v1()], max_steps=300)
+    model1, model2 = train_dqn(model1=model1, model2=model2, num_iterations=3000, enemy='static:0', augmentors=[DataAugmentor_v1()])
     model1, model2 = train_dqn(model1=model1, model2=model2, num_iterations=10000, enemy='smart_random_no_bomb', augmentors=[DataAugmentor_v1()])
 
 # Only run main() if script if executed explicitly
