@@ -26,6 +26,7 @@ def test_pommerman_dqn():
     torch.manual_seed(p.seed)
     np.random.seed(p.seed)
     random.seed(p.seed)
+    device = torch.device("cpu") if not torch.cuda.is_available() else torch.device("cuda")
 
     if p.env == 'OneVsOne-v0':
         board_size = 8
@@ -39,35 +40,49 @@ def test_pommerman_dqn():
     else:
         transform_func = transform_observation_simple
 
-    q = Pommer_Q(p.p_observable, transform_func)
+    q = Pommer_Q(p.p_observable or p.centralize_planes, transform_func)
+    q.to(device)
     torch.manual_seed(p.seed)
-    q_target = Pommer_Q(p.p_observable, transform_func)
-    algo = DQN(q, q_target)
+    q_target = Pommer_Q(p.p_observable or p.centralize_planes, transform_func)
+    q_target.to(device)
+    algo = DQN(q, q_target, p.exploration_noise, device=device, dq=p.double_q)
     data_generator = DataGeneratorPommerman(
 	p.env,
 	augmenter=[
             DataAugmentor_v1()
         ])
-
     run_name=datetime.now().strftime("%Y%m%dT%H%M%S")
     log_dir=os.path.join("./data/tensorboard/", run_name)
     logging.info(f"Staring run {run_name}")
     writer = SummaryWriter(log_dir=log_dir)
-
+    backsize = 1
+    backplay_interval = int(np.floor(p.num_iterations/1000))
+    explo = p.exploration_noise
     for i in range(p.num_iterations):
         logging.info(f"Iteration {i+1}/{p.num_iterations} started")
         iteration_stopwatch = Stopwatch(start=True)
         policy = algo.get_policy()
 
-        res, ties, avg_rwd, act_counts, avg_steps = data_generator.generate(p.episodes_per_iter, policy, q.get_transformer())
+        res, ties, avg_rwd, act_counts, avg_steps = data_generator.generate(p.episodes_per_iter, policy,
+                                                                  q.get_transformer(), 'train', 'static:0')
+        explo = max(p.explortation_min, explo - p.exploration_dropoff)
+        algo.set_exploration(explo)
         act_counts=[act/sum(act_counts) for act in act_counts] # Normalize
         #The agents wins are stored at index 0 i the data_generator
         win_ratio = res[0] / (sum(res)+ties)
 
         total_loss=0
         gradient_step_stopwatch=Stopwatch(start=True)
+        #increase backplay range (stop at
+        if p.backplay:
+            if(i + 1) % backplay_interval == 0:
+                backsize += 1
+
         for j in range(p.gradient_steps_per_iter):
-            if p.episode_backward:
+            if p.backplay:
+                batch_s = min(len(data_generator.episode_buffer) * backsize, p.batch_size)
+                batch = data_generator.get_batch_buffer_back(batch_s, backsize)
+            elif p.episode_backward:
                 batch = data_generator.get_episode_buffer()
             else:
                 batch = data_generator.get_batch_buffer(p.batch_size)
@@ -95,13 +110,13 @@ def test_pommerman_dqn():
             test_stopwatch=Stopwatch(start=True)
             logging.info("Testing model")
             
-            algo.set_train(False)
+            algo.set_train(True)
             policy = algo.get_policy()
             
             model_save_path = log_dir + "/" + str(i)
             torch.save(algo.q_network.state_dict(), model_save_path)
             logging.info("Saved model to: " + model_save_path)
-            data_generator.generate(p.episodes_per_eval, policy, q.get_transformer(), render=p.render_tests)
+            data_generator.generate(p.episodes_per_eval, policy, q.get_transformer(), 'train', 'static:0', render=p.render_tests)
             algo.set_train(True)
             logging.debug(f"Test finished after {test_stopwatch.stop()}s")
             logging.info("------------------------")

@@ -28,21 +28,22 @@ def transform_observation(obs, p_obs=False, centralized=False):
         np.isin(board, Item.Agent0.value).astype(np.uint8),     # 8
         np.isin(board, Item.Agent1.value).astype(np.uint8),     # 9
         np.isin(board, Item.Agent2.value).astype(np.uint8),     # 10
-        np.isin(board, Item.Agent3.value).astype(np.uint8)#,     # 11
+        np.isin(board, Item.Agent3.value).astype(np.uint8),     # 11
+        obs['flame_life'],
+        obs['bomb_life']
         #np.isin(board, Item.Fog.value).astype(np.uint8)         # 12
     ]
     if p_obs:
-        planes = _centralize_planes_partial(planes, obs['position'])
+        planes = _centralize_planes_partial(planes, obs['position'], obs['step_count'])
     elif centralized:
-        planes = _centralize_planes(planes, obs['position'])
-
+        planes = _centralize_planes(planes, obs['position'], obs['step_count'])
     transformed = np.stack(planes, axis=-1)
     transformed = np.moveaxis(transformed, -1, 0)  # move channel dimension to front (pytorch expects this)
     features['board'] = transformed
     return transformed
 
 
-def _centralize_planes(planes, pos):
+def _centralize_planes(planes, pos, step_count):
     b_size = planes[0].shape[0]
     central_b_size = 2 * b_size - 1
     centralized_planes = []
@@ -51,10 +52,16 @@ def _centralize_planes(planes, pos):
         start = ((b_size - 1) - pos[0], (b_size - 1) - pos[1])
         central[start[0]:start[0] + b_size, start[1]:start[1] + b_size] = p
         centralized_planes.append(central)
+
+    outside_board = np.zeros((central_b_size, central_b_size))
+    outside_board[max((b_size - 1) - pos[0], 0):min(max((b_size - 1) - pos[0], 0) + b_size, central_b_size),
+    max((b_size - 1) - pos[1], 0):min(max((b_size - 1) - pos[1], 0) + b_size, central_b_size)] = np.ones(
+        (b_size, b_size))
+    centralized_planes.append(outside_board)
     return centralized_planes
 
 
-def _centralize_planes_partial(planes, pos):
+def _centralize_planes_partial(planes, pos, step_count):
     b_size = 5
     central_b_size = 2 * b_size - 1
     partial_planes = []
@@ -67,15 +74,9 @@ def _centralize_planes_partial(planes, pos):
             p[max(pos[0] - (b_size - 1), 0):min(board_length, pos[0] + (b_size)),
             max(pos[1] - (b_size - 1), 0):min(board_length, pos[1] + (b_size))]
         partial_planes.append(partial)
-
     outside_board = np.zeros((central_b_size, central_b_size))
-    for i in range(0, central_b_size):
-        for j in range(0, central_b_size):
-            plane_x = (pos[0] + i - b_size + 1)
-            plane_y = (pos[1] + j - b_size + 1)
-            if plane_x < 0 or plane_x >= board_length or plane_y < 0 or plane_y >= board_length:
-                outside_board[i][j] = 1.0
-
+    outside_board[max((b_size-1) - pos[0], 0):min(max((b_size-1) - pos[0], 0) + b_size, central_b_size),
+        max((b_size-1) - pos[1], 0):min(max((b_size-1) - pos[1], 0) + b_size, central_b_size)] = np.ones((b_size, b_size))
     partial_planes.append(outside_board)
     return partial_planes
 

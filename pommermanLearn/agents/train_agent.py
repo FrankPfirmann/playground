@@ -17,4 +17,4 @@ class TrainAgent(agents.BaseAgent):
 
     def act(self, obs, action_space):
         act = self.policy(obs)
-        return int(act.detach().numpy()[0])
+        return int(act.detach().cpu().numpy()[0])
