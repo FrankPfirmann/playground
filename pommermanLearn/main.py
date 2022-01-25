@@ -39,6 +39,8 @@ def train_dqn(model1=None, model2=None, num_iterations=p.num_iterations, episode
     if model1 == None:
         q1 = Pommer_Q(p.p_observable or p.centralize_planes, transform_func)
         q_target1 = Pommer_Q(p.p_observable or p.centralize_planes, transform_func)
+        q1.to(device)
+        q_target1.to(device)
         algo1 = DQN(q1, q_target1, p.exploration_noise)
     else:
         algo1 = model1
@@ -46,6 +48,8 @@ def train_dqn(model1=None, model2=None, num_iterations=p.num_iterations, episode
     if model1 == None:
         q2 = Pommer_Q(p.p_observable, transform_func)
         q_target2 = Pommer_Q(p.p_observable, transform_func)
+        q2.to(device)
+        q_target2.to(device)
         algo2 = DQN(q2, q_target2, p.exploration_noise)
     else:
         algo2 = model2
