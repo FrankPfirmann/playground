@@ -39,14 +39,14 @@ def train_dqn(model1=None, model2=None, num_iterations=p.num_iterations, episode
     if model1 == None:
         q1 = Pommer_Q(p.p_observable or p.centralize_planes, transform_func)
         q_target1 = Pommer_Q(p.p_observable or p.centralize_planes, transform_func)
-        algo1 = DQN(q1, q_target1)
+        algo1 = DQN(q1, q_target1, p.exploration_noise)
     else:
         algo1 = model1
 
     if model1 == None:
         q2 = Pommer_Q(p.p_observable, transform_func)
         q_target2 = Pommer_Q(p.p_observable, transform_func)
-        algo2 = DQN(q2, q_target2)
+        algo2 = DQN(q2, q_target2, p.exploration_noise)
     else:
         algo2 = model2
 
@@ -71,11 +71,10 @@ def train_dqn(model1=None, model2=None, num_iterations=p.num_iterations, episode
         policy2 = algo2.get_policy()
 
         # generate data an store normalized act counts and win ration
-        res, ties, avg_rwd, act_counts, avg_steps = data_generator.generate(episodes_per_iter, policy1, policy2, enemy, q1.get_transformer(), max_steps)
+        res, ties, avg_rwd, act_counts, avg_steps = data_generator.generate(episodes_per_iter, policy1, policy2, enemy, q1.get_transformer(), 'train', 'train', max_steps)
         act_counts[0] = [act/sum(act_counts[0]) for act in act_counts[0]]
         act_counts[1] = [act/sum(act_counts[1]) for act in act_counts[1]]
-        res, ties, avg_rwd, act_counts, avg_steps = data_generator.generate(p.episodes_per_iter, policy,
-                                                                  q.get_transformer(), 'train', 'static:0')
+
         explo = max(p.explortation_min, explo - p.exploration_dropoff)
         algo1.set_exploration(explo)
         algo2.set_exploration(explo)
