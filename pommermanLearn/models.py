@@ -138,3 +138,48 @@ class Pommer_Q(nn.Module):
                 )))]
 
         return transformer
+
+class PommerQEmbeddingMLP(nn.Module):
+    def __init__(self, embedding_model):
+        super(PommerQEmbeddingMLP, self).__init__()
+        self.embedding_model = embedding_model
+
+        self.linear=nn.Sequential(
+            nn.Linear(in_features=128, out_features=128),
+            nn.ReLU(),
+            nn.Linear(in_features=128, out_features=128),
+            nn.ReLU(),
+            nn.Linear(in_features=128, out_features=32),
+            nn.ReLU(),
+            nn.Linear(in_features=32, out_features=6),
+            nn.Softmax(dim=0)
+        )
+
+    def forward(self, obs):
+        x_board=obs[0] # Board Embedding
+
+        x = self.linear(x_board)#.unsqueeze(0)
+        return x
+
+    def get_transformer(self) -> Callable:
+        """
+        Return a callable for input transformation.
+        
+        The callable should take a ``dict`` containing data of a single
+        observation from the Pommerman environment and return a ``list``
+        of individual numpy arrays that can be used later as an input
+        value in the ``forward()`` function.
+        """
+        def transformer(obs: dict) -> list:
+            planes = transform_observation(obs, p_obs=True, centralized=True)
+            flattened = planes.flatten()
+
+            # Generate embedding 
+            flattened = torch.tensor(flattened, device=torch.device('cpu')) # TODO: Make 'cpu' variable
+            board_embedding = self.embedding_model.forward(flattened)
+            board_embedding = board_embedding.detach().numpy()
+            return [
+                board_embedding
+            ]
+
+        return transformer
