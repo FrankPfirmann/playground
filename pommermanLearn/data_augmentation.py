@@ -35,7 +35,7 @@ class DataAugmentor_v1(DataAugmentor):
     def _init_(self) -> None:
         pass
 
-    def augment(self, obs: dict, action: Action, reward: float, nobs: dict, done: bool) -> list:
+    def augment(self, obs: dict, action: int, reward: float, nobs: dict, done: bool) -> list:
         """
         Take a state transition and create rotated, mirrored and point reflected versions from it
 
@@ -111,7 +111,7 @@ class DataAugmentor_v1(DataAugmentor):
         """
         Rotate an agents actions by 90 degrees counter-clockwise
         """
-        if action == Action.Stop.value or Action.Bomb.value:
+        if action == Action.Stop.value or action == Action.Bomb.value:
             action_rotated = action
         elif action == Action.Up.value:
             action_rotated = Action.Left.value
@@ -142,7 +142,7 @@ class DataAugmentor_v1(DataAugmentor):
         '''
         Mirror an agents observation horizontally
         '''
-        if action == Action.Stop.value or Action.Bomb.value or action == Action.Up.value or action == Action.Down.value:
+        if action == Action.Stop.value or action == Action.Bomb.value or action == Action.Up.value or action == Action.Down.value:
             action_mirrored = action
         elif action == Action.Left.value:
             action_mirrored = Action.Right.value
@@ -169,7 +169,7 @@ class DataAugmentor_v1(DataAugmentor):
         """
         Mirror an agents actions vertically
         """
-        if action == Action.Stop.value or Action.Bomb.value or action == Action.Left.value or action == Action.Right.value:
+        if action == Action.Stop.value or action == Action.Bomb.value or action == Action.Left.value or action == Action.Right.value:
             action_mirrored = action
         elif action == Action.Up.value:
             action_mirrored = Action.Down.value

@@ -1,5 +1,4 @@
 # main.py
-
 num_iterations = 1000000
 episodes_per_iter = 1
 gradient_steps_per_iter = 10
@@ -15,7 +14,6 @@ backplay = False
 double_q = True
 
 #dqn.py
-
 seed = 1
 
 gamma = 0.99
@@ -36,3 +34,7 @@ explortation_min = 0.05
 replay_size = 50000
 max_steps = 800
 reward_func = 'SkynetReward' #SkynetReward, BombReward
+
+#models.py
+use_memory=False
+forgetfullness=0.05

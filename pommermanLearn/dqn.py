@@ -4,11 +4,12 @@ import random
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import params as p
+from torch.optim import Adam
+
 from action_prune import get_filtered_actions
 from models import Pommer_Q
+import params as p
 
-from torch.optim import Adam
 
 
 # inspired by https://github.com/KaleabTessera/DQN-Atari/blob/master/dqn/agent.py
