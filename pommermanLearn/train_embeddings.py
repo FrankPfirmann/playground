@@ -13,10 +13,12 @@ from pommerman.agents.simple_agent import SimpleAgent
 from embeddings import PommerLinearAutoencoder
 from util.data import transform_observation
 
-train=False
-test=True
-num_games   = 10
+log_level=logging.INFO
+train=True
+evaluate=True
 num_epochs  = 1000
+learning_rate=0.001
+num_games   = 1
 train_split = 0.8
 val_split   = 1-train_split
 
@@ -59,9 +61,9 @@ def generate_dataset(num_games):
         logging.info(f"Finished game {i+1}/{num_games} in {len(observations)} steps")
     return X
     
-def train_model(model, X_train, X_val, epochs=1):
+def train_model(model, X_train, X_val, epochs=1, lr=0.001):
     criterion = nn.BCELoss()
-    optimizer = optim.Adam(model.parameters(), lr=0.001)
+    optimizer = optim.Adam(model.parameters(), lr=lr)
     train_loss = []
     for epoch in range(epochs):
         running_loss = 0.0
@@ -151,7 +153,7 @@ def test_thresholds(model, data, thresholds=[]):
         evaluations.append(evaluation)
     return evaluations
 
-setup_logger()
+setup_logger(log_level=log_level)
 
 logging.info(f"Generating dataset from {num_games} games")
 data = generate_dataset(num_games=num_games)
@@ -170,9 +172,9 @@ if train:
     model.to(get_device())
 
     logging.info("Starting training of model")
-    loss=train_model(model, X_train, X_val, epochs=num_epochs)
+    loss=train_model(model, X_train, X_val, epochs=num_epochs, lr=learning_rate)
 
-if test:
+if evaluate:
     path="./data/models/embeddings_net_pobs-best.pth"
     logging.info(f"Loading model {path}")
     model = load_model(path)
