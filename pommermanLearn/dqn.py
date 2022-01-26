@@ -4,17 +4,19 @@ import random
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import params as p
+from torch.optim import Adam
+
 from action_prune import get_filtered_actions
 from models import Pommer_Q
+import params as p
 
-from torch.optim import Adam
 
 
 # inspired by https://github.com/KaleabTessera/DQN-Atari/blob/master/dqn/agent.py
 
 class DQN(object):
-    def __init__(self, q_network: Pommer_Q, q_target_network: Pommer_Q, is_train: bool=True, device: torch.device=None):
+    def __init__(self, q_network: Pommer_Q, q_target_network: Pommer_Q, init_exploration,
+                 is_train: bool=True, device: torch.device=None, dq:bool=False):
         """
         Create a new DQN model for training or inference.
 
@@ -34,6 +36,8 @@ class DQN(object):
         self.q_optim = Adam(self.q_network.parameters(), lr=p.lr_q)
         self.update_target(self.q_target_network, self.q_network, 1.0)
         self.is_train = is_train
+        self.exploration = init_exploration
+        self.double_q = dq
 
     def update_target(self, q_target, q, t):
         for x, y in zip(q_target.parameters(), q.parameters()):
@@ -57,7 +61,7 @@ class DQN(object):
                 q_values = self.q_network(obs)
 
             if self.is_train:
-                if random.random() > p.exploration_noise:
+                if random.random() > self.exploration:
                     action = torch.nan_to_num(q_values, nan=-float('inf')).max(1)[1]
                 else:
                     action = torch.tensor([random.choice(valid_actions)])
@@ -69,6 +73,9 @@ class DQN(object):
     def set_train(self, t):
         self.is_train = t
 
+    def set_exploration(self, exp):
+        self.exploration = exp
+
     def update_q(self, obs, act, rwd, nobs, done):
         obs_batch = obs
         nobs_batch = nobs
@@ -77,13 +84,19 @@ class DQN(object):
         done_batch = done
 
         with torch.no_grad():
-            next_q = self.q_target_network(nobs_batch).squeeze()
-            max_next_q = next_q.max(1)[0].unsqueeze(1)
-            q_target = rwd_batch + p.gamma * max_next_q * (1.0 - done_batch)
-
+            if self.double_q:
+                next_q = self.q_network(nobs_batch).squeeze()
+                max_action_q = next_q.argmax(1)
+                next_q_target = self.q_target_network(nobs_batch).squeeze()
+                max_next_q = next_q_target.gather(1, max_action_q.long().unsqueeze(1))
+                q_target = rwd_batch + p.gamma * max_next_q * (1.0 - done_batch)
+            else:
+                next_q = self.q_target_network(nobs_batch).squeeze()
+                max_next_q = next_q.max(1)[0].unsqueeze(1)
+                q_target = rwd_batch + p.gamma * max_next_q * (1.0 - done_batch)
         q = self.q_network(obs_batch).squeeze()
         q = q.gather(1, act_batch.long().unsqueeze(1))
-        loss = F.mse_loss(q, q_target)
+        loss = F.mse_loss(q_target, q)
 
         self.q_optim.zero_grad()
         loss.backward()

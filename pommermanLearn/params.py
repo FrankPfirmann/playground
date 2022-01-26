@@ -1,18 +1,19 @@
 # main.py
-
 num_iterations = 1000000
-episodes_per_iter = 5
+episodes_per_iter = 1
 gradient_steps_per_iter = 10
 batch_size = 16
 episodes_per_eval = 10
 intermediate_test = 10
 centralize_planes = True
 render_tests = False
-env = 'PommeFFACompetition-v0'  # PommeFFACompetition-v0 or OneVsOne-v0
+env = 'PommeTeamCompetition-v0'  # PommeFFACompetition-v0 or OneVsOne-v0 or PommeTeamCompetition-v0
 episode_backward = False
 p_observable = True
-#dqn.py
+backplay = False
+double_q = True
 
+#dqn.py
 seed = 1
 
 gamma = 0.99
@@ -26,9 +27,14 @@ warmup_trans = 500
 eval_every = 500
 eval_episodes = 10
 exploration_noise = 0.1
-
+exploration_dropoff = 0.01
+explortation_min = 0.05
 #data_generator.py
 
-replay_size = 1000000
-max_steps = 500
-reward_func = 'SkynetReward'
+replay_size = 50000
+max_steps = 800
+reward_func = 'SkynetReward' #SkynetReward, BombReward
+
+#models.py
+use_memory=False
+forgetfullness=0.05
