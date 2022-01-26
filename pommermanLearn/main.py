@@ -149,7 +149,7 @@ def train_dqn(dqn1=None, dqn2=None, num_iterations=p.num_iterations, episodes_pe
             torch.save(dqn1.q_network.state_dict(), model_save_path + '_1')
             torch.save(dqn2.q_network.state_dict(), model_save_path + '_2')
             logging.info("Saved model to: " + model_save_path)
-            data_generator.generate(p.episodes_per_eval, policy1, policy2, enemy, dqn1.q_network.get_transformer(), max_steps, render=p.render_tests)
+            data_generator.generate(p.episodes_per_eval, policy1, policy2, enemy, dqn1.q_network.get_transformer(), 'train', 'train', max_steps, render=p.render_tests)
             dqn1.set_train(True)
             dqn2.set_train(True)
             logging.debug(f"Test finished after {test_stopwatch.stop()}s")
@@ -180,8 +180,8 @@ def main(args):
 
     p.num_iterations=args.iterations
 
-    dqn1, dqn2 = train_dqn(num_iterations=1, enemy='static:0', augmentors=[])
-    dqn1, dqn2 = train_dqn(dqn1=dqn1, dqn2=dqn2, num_iterations=10000, enemy='smart_random_no_bomb', augmentors=[])
+    dqn1, dqn2 = train_dqn(num_iterations=10000, enemy='smart_random', augmentors=[])
+    # dqn1, dqn2 = train_dqn(dqn1=dqn1, dqn2=dqn2, num_iterations=10000, enemy='smart_random_no_bomb', augmentors=[])
 
 # Only run main() if script if executed explicitly
 if __name__ == '__main__':
