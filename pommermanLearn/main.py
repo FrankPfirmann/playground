@@ -22,7 +22,7 @@ from models import Pommer_Q
 from util.analytics import Stopwatch
 from util.data import transform_observation_simple, transform_observation_partial, transform_observation_centralized
 
-def train_dqn(model1=None, model2=None, num_iterations=p.num_iterations, episodes_per_iter=p.episodes_per_iter, augmentors=[], enemy='static:0', max_steps=p.max_steps) :
+def train_dqn(dqn1=None, dqn2=None, num_iterations=p.num_iterations, episodes_per_iter=p.episodes_per_iter, augmentors=[], enemy='static:0', max_steps=p.max_steps) :
     torch.manual_seed(p.seed)
     np.random.seed(p.seed)
     random.seed(p.seed)
@@ -35,19 +35,15 @@ def train_dqn(model1=None, model2=None, num_iterations=p.num_iterations, episode
         transform_func = transform_observation_simple
 
     # initialize DQN and data generator 
-    if model1 == None:
+    if dqn1 == None:
         q1 = Pommer_Q(p.p_observable, transform_func)
         q_target1 = Pommer_Q(p.p_observable, transform_func)
-        algo1 = DQN(q1, q_target1)
-    else:
-        algo1 = model1   
+        dqn1 = DQN(q1, q_target1) 
 
-    if model1 == None:
+    if dqn2 == None:
         q2 = Pommer_Q(p.p_observable, transform_func)
         q_target2 = Pommer_Q(p.p_observable, transform_func)
-        algo2 = DQN(q2, q_target2)
-    else:
-        algo2 = model2  
+        dqn2 = DQN(q2, q_target2)
 
     data_generator = DataGeneratorPommerman(
 	    p.env,
@@ -64,11 +60,11 @@ def train_dqn(model1=None, model2=None, num_iterations=p.num_iterations, episode
     for i in range(num_iterations):
         logging.info(f"Iteration {i+1}/{num_iterations} started")
         iteration_stopwatch = Stopwatch(start=True)
-        policy1 = algo1.get_policy()
-        policy2 = algo2.get_policy()
+        policy1 = dqn1.get_policy()
+        policy2 = dqn2.get_policy()
 
         # generate data an store normalized act counts and win ration
-        res, ties, avg_rwd, act_counts, avg_steps = data_generator.generate(episodes_per_iter, policy1, policy2, enemy, q1.get_transformer(), max_steps)
+        res, ties, avg_rwd, act_counts, avg_steps = data_generator.generate(episodes_per_iter, policy1, policy2, enemy, dqn1.q_network.get_transformer(), max_steps)
         act_counts[0] = [act/sum(act_counts[0]) for act in act_counts[0]]
         act_counts[1] = [act/sum(act_counts[1]) for act in act_counts[1]]
         win_ratio = res[0] / (sum(res)+ties)
@@ -81,7 +77,7 @@ def train_dqn(model1=None, model2=None, num_iterations=p.num_iterations, episode
                 batch1 = data_generator.get_episode_buffer()
             else:
                 batch1 = data_generator.get_batch_buffer(p.batch_size, 0)
-            loss = algo1.train(batch1)
+            loss = dqn1.train(batch1)
             total_loss += loss
 
         for _ in range(p.gradient_steps_per_iter):
@@ -89,7 +85,7 @@ def train_dqn(model1=None, model2=None, num_iterations=p.num_iterations, episode
                 batch2 = data_generator.get_episode_buffer()
             else:
                 batch2 = data_generator.get_batch_buffer(p.batch_size, 1)
-            loss=algo2.train(batch2)
+            loss=dqn2.train(batch2)
             total_loss+=loss
         avg_loss=total_loss/p.gradient_steps_per_iter
 
@@ -122,21 +118,21 @@ def train_dqn(model1=None, model2=None, num_iterations=p.num_iterations, episode
         if i % p.intermediate_test == p.intermediate_test-1:
             test_stopwatch=Stopwatch(start=True)
             logging.info("Testing model")        
-            algo1.set_train(False)
-            algo2.set_train(False)
-            policy1 = algo1.get_policy()
-            policy2 = algo2.get_policy()          
+            # dqn1.set_train(False)
+            # dqn2.set_train(False)
+            policy1 = dqn1.get_policy()
+            policy2 = dqn2.get_policy()          
             model_save_path = log_dir + "/" + str(i)
-            torch.save(algo1.q_network.state_dict(), model_save_path + '_1')
-            torch.save(algo2.q_network.state_dict(), model_save_path + '_2')
+            torch.save(dqn1.q_network.state_dict(), model_save_path + '_1')
+            torch.save(dqn2.q_network.state_dict(), model_save_path + '_2')
             logging.info("Saved model to: " + model_save_path)
-            data_generator.generate(p.episodes_per_eval, policy1, policy2, enemy, q1.get_transformer(), max_steps, render=p.render_tests)
-            algo1.set_train(True)
-            algo2.set_train(True)
+            data_generator.generate(p.episodes_per_eval, policy1, policy2, enemy, dqn1.q_network.get_transformer(), max_steps, render=p.render_tests)
+            dqn1.set_train(True)
+            dqn2.set_train(True)
             logging.debug(f"Test finished after {test_stopwatch.stop()}s")
             logging.info("------------------------")
     writer.close()
-    return algo1 , algo2
+    return dqn1 , dqn2
 
 def setup_logger(log_level=logging.INFO):
     """
@@ -161,9 +157,8 @@ def main(args):
 
     p.num_iterations=args.iterations
 
-    model1, model2 = train_dqn(num_iterations=3000, enemy='static:0', augmentors=[DataAugmentor_v1()], max_steps=300)
-    model1, model2 = train_dqn(model1=model1, model2=model2, num_iterations=3000, enemy='static:0', augmentors=[DataAugmentor_v1()])
-    model1, model2 = train_dqn(model1=model1, model2=model2, num_iterations=10000, enemy='smart_random_no_bomb', augmentors=[DataAugmentor_v1()])
+    dqn1, dqn2 = train_dqn(num_iterations=1, enemy='static:0', augmentors=[])
+    dqn1, dqn2 = train_dqn(dqn1=dqn1, dqn2=dqn2, num_iterations=10000, enemy='smart_random_no_bomb', augmentors=[])
 
 # Only run main() if script if executed explicitly
 if __name__ == '__main__':
