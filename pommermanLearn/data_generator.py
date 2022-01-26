@@ -1,6 +1,8 @@
 import logging
 from collections import deque
 
+from agents.skynet_agents import SmartRandomAgent, SmartRandomAgentNoBomb
+from logger import Logger
 import random
 from typing import Callable
 
@@ -11,6 +13,9 @@ from pommerman.constants import Item
 import torch
 import sys
 
+import params as p
+from util.data import transform_observation
+from util.rewards import staying_alive_reward, go_down_right_reward, bomb_reward, skynet_reward, woods_close_to_bomb_reward
 from agents.skynet_agents import SmartRandomAgent, SmartRandomAgentNoBomb
 from agents.static_agent import StaticAgent
 from agents.train_agent import TrainAgent
@@ -34,8 +39,9 @@ class DataGeneratorPommerman:
         # Define replay pool
         self.buffer = []
         self.episode_buffer = []
+        self.episode_buffer_length = 0
 
-        self.agents_n = 2 if self.env == 'OneVsOne-v0' else 4
+        self.agents_n = 2 if self.env == 'OneVsOne-v0' or self.env.startswith("custom") else 4
         self.player_agents_n = int(self.agents_n/2)
         self.buffers = [[] for _ in range(self.player_agents_n)]
         self.idx = 0
@@ -52,7 +58,14 @@ class DataGeneratorPommerman:
 
     def get_batch_buffer(self, size, agent_num):
         batch = list(zip(*random.sample(self.buffers[agent_num], size)))
-        return np.array(batch[0]), np.array(batch[1]), np.array(batch[2]), np.array(batch[3]), np.array(batch[4])    
+        return np.array(batch[0]), np.array(batch[1]), np.array(batch[2]), np.array(batch[3]), np.array(batch[4])
+
+    def get_batch_buffer_back(self, size, j):
+        sample_pool = []
+        for b in self.episode_buffer:
+            sample_pool.extend(b[-j:])
+        batch = list(zip(*random.sample(sample_pool, size)))
+        return np.array(batch[0]), np.array(batch[1]), np.array(batch[2]), np.array(batch[3]), np.array(batch[4])
 
     def add_to_episode_buffer(self, i, obs, act, rwd, nobs, done):
         if len(self.buffer) < p.replay_size:
@@ -79,9 +92,9 @@ class DataGeneratorPommerman:
         agent_list = [None] * self.agents_n
         agent_ind = 0 if setposition else np.random.randint(2)
         for i in range(0, self.agents_n):
-            
+
             if i == agent_ind:
-                agent_str = agent1 
+                agent_str = agent1
             elif i == agent_ind + 2:
                 agent_str = agent2
             else:
@@ -113,7 +126,7 @@ class DataGeneratorPommerman:
             agent_ids = [10 + agent_ind, 12 + agent_ind]
         return agent_inds, agent_ids, agent_list
 
-    def generate(self, episodes: int, policy1: Callable, policy2: Callable, enemy: str, transformer: Callable, max_steps: int=p.max_steps, render: bool=False) -> tuple:
+    def generate(self, episodes: int, policy1: Callable, policy2: Callable, enemy: str, transformer: Callable, agent1, agent2, max_steps: int=p.max_steps, render: bool=False) -> tuple:
         """
         Generate ``episodes`` samples acting by ``policy`` and saving
         observations transformed with ``transformer``.
@@ -140,7 +153,7 @@ class DataGeneratorPommerman:
         fifo = [[] for _ in range(self.agents_n)]
         skynet_reward_log = [[0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0]]
         for i_episode in range(episodes):
-            agent_inds, agent_ids, agent_list = self._init_agent_list('train', 'train', policy1, policy2, enemy, True)
+            agent_inds, agent_ids, agent_list = self._init_agent_list(agent1, agent2, policy1, policy2, enemy, True)
 
             env = pommerman.make(self.env, agent_list)
             obs = env.reset()
@@ -197,6 +210,8 @@ class DataGeneratorPommerman:
 
                         # Add everything to the buffer
                         for t in transitions:
+                            if p.backplay:
+                                self.add_to_episode_buffer(i, *t)
                             if not p.episode_backward:
                                 self.add_to_buffer(*t, i)
                             else:
@@ -207,9 +222,13 @@ class DataGeneratorPommerman:
                     alive[i] = agent_ids[i] in nobs[agent_inds[i]]['alive']
                 obs = nobs
                 steps_n += 1
-            if p.episode_backward:
+            #add to episode buffer
+            if p.episode_backward or p.backplay:
                 for i in range(len(self.buffers)):
                     self.episode_buffer.append(self.buffers[i])
+                    if self.episode_buffer_length + len(self.buffers[i]) > p.replay_size:
+                        self.episode_buffer.pop(0)
+                    self.episode_buffer_length += len(self.buffers[i])
                     self.buffers[i] = []
             avg_rwd += ep_rwd
             avg_steps += steps_n

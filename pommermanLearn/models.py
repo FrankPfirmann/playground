@@ -24,7 +24,7 @@ def init_weights(m):
 
 
 class Pommer_Q(nn.Module):
-    def __init__(self, p_obs, board_transform_func):
+    def __init__(self, p_central, board_transform_func):
         super(Pommer_Q, self).__init__()
         self.conv_kernel_size = 3
         self.conv_kernel_stride = 1
@@ -32,9 +32,9 @@ class Pommer_Q(nn.Module):
         self.pool_kernel_stride = 2
         self.last_cnn_depth = 32
         self.input_dim = 256
-        self.p_obs=p_obs
-        self.planes_num = 13 if p_obs else 12
-        self.padding = 1 if p_obs else 0
+        self.planes_num = 15 if p_central else 14
+        self.padding = 1
+        self.use_memory = False
         self.use_memory = p.use_memory
         self.memory = None
 
@@ -60,14 +60,14 @@ class Pommer_Q(nn.Module):
         #self.conv.apply(init_weights)
         #self.linear.apply(init_weights)
         #self.combined.apply(init_weights)
-    
+
     def validate_memory(self, nobs):
         if self.memory is None:
             return False
 
         if self.memory[0].shape != nobs[0].shape:
             return False
-        
+
         if self.memory[1].shape != nobs[1].shape:
             return False
 

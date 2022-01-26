@@ -10,6 +10,8 @@ render_tests = False
 env = 'PommeTeamCompetition-v0'  # PommeFFACompetition-v0 or OneVsOne-v0 or PommeTeamCompetition-v0
 episode_backward = False
 p_observable = True
+backplay = False
+double_q = True
 
 #dqn.py
 seed = 1
@@ -25,7 +27,8 @@ warmup_trans = 500
 eval_every = 500
 eval_episodes = 10
 exploration_noise = 0.1
-
+exploration_dropoff = 0.01
+explortation_min = 0.05
 #data_generator.py
 
 replay_size = 50000

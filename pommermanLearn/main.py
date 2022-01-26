@@ -26,6 +26,7 @@ def train_dqn(dqn1=None, dqn2=None, num_iterations=p.num_iterations, episodes_pe
     torch.manual_seed(p.seed)
     np.random.seed(p.seed)
     random.seed(p.seed)
+    device = torch.device("cpu") if not torch.cuda.is_available() else torch.device("cuda")
 
     if p.p_observable:
         transform_func = transform_observation_partial
@@ -34,16 +35,20 @@ def train_dqn(dqn1=None, dqn2=None, num_iterations=p.num_iterations, episodes_pe
     else:
         transform_func = transform_observation_simple
 
-    # initialize DQN and data generator 
+    # initialize DQN and data generator
     if dqn1 == None:
-        q1 = Pommer_Q(p.p_observable, transform_func)
-        q_target1 = Pommer_Q(p.p_observable, transform_func)
-        dqn1 = DQN(q1, q_target1) 
+        q1 = Pommer_Q(p.p_observable or p.centralize_planes, transform_func)
+        q_target1 = Pommer_Q(p.p_observable or p.centralize_planes, transform_func)
+        q1.to(device)
+        q_target1.to(device)
+        dqn1 = DQN(q1, q_target1, p.exploration_noise)
 
     if dqn2 == None:
         q2 = Pommer_Q(p.p_observable, transform_func)
         q_target2 = Pommer_Q(p.p_observable, transform_func)
-        dqn2 = DQN(q2, q_target2)
+        q2.to(device)
+        q_target2.to(device)
+        dqn2 = DQN(q2, q_target2, p.exploration_noise)
 
     data_generator = DataGeneratorPommerman(
 	    p.env,
@@ -55,7 +60,9 @@ def train_dqn(dqn1=None, dqn2=None, num_iterations=p.num_iterations, episodes_pe
     log_dir=os.path.join("./data/tensorboard/", run_name)
     logging.info(f"Staring run {run_name}")
     writer = SummaryWriter(log_dir=log_dir)
-
+    backsize = 1
+    backplay_interval = int(np.floor(p.num_iterations/1000))
+    explo = p.exploration_noise
     # training loop
     for i in range(num_iterations):
         logging.info(f"Iteration {i+1}/{num_iterations} started")
@@ -64,16 +71,28 @@ def train_dqn(dqn1=None, dqn2=None, num_iterations=p.num_iterations, episodes_pe
         policy2 = dqn2.get_policy()
 
         # generate data an store normalized act counts and win ration
-        res, ties, avg_rwd, act_counts, avg_steps = data_generator.generate(episodes_per_iter, policy1, policy2, enemy, dqn1.q_network.get_transformer(), max_steps)
+        res, ties, avg_rwd, act_counts, avg_steps = data_generator.generate(episodes_per_iter, policy1, policy2, enemy, q1.get_transformer(), 'train', 'train', max_steps)
         act_counts[0] = [act/sum(act_counts[0]) for act in act_counts[0]]
         act_counts[1] = [act/sum(act_counts[1]) for act in act_counts[1]]
+
+        explo = max(p.explortation_min, explo - p.exploration_dropoff)
+        dqn1.set_exploration(explo)
+        dqn2.set_exploration(explo)
+        #The agents wins are stored at index 0 i the data_generator
         win_ratio = res[0] / (sum(res)+ties)
 
         # fit models on generated data
         total_loss=0
         gradient_step_stopwatch=Stopwatch(start=True)
+        #increase backplay range (stop at
+        if p.backplay:
+            if(i + 1) % backplay_interval == 0:
+                backsize += 1
         for _ in range(p.gradient_steps_per_iter):
-            if p.episode_backward:
+            if p.backplay:
+                batch_s = min(len(data_generator.episode_buffer) * backsize, p.batch_size)
+                batch1 = data_generator.get_batch_buffer_back(batch_s, backsize)
+            elif p.episode_backward:
                 batch1 = data_generator.get_episode_buffer()
             else:
                 batch1 = data_generator.get_batch_buffer(p.batch_size, 0)
@@ -81,12 +100,16 @@ def train_dqn(dqn1=None, dqn2=None, num_iterations=p.num_iterations, episodes_pe
             total_loss += loss
 
         for _ in range(p.gradient_steps_per_iter):
-            if p.episode_backward:
+            if p.backplay:
+                batch_s = min(len(data_generator.episode_buffer) * backsize, p.batch_size)
+                batch2 = data_generator.get_batch_buffer_back(batch_s, backsize)
+            elif p.episode_backward:
                 batch2 = data_generator.get_episode_buffer()
             else:
                 batch2 = data_generator.get_batch_buffer(p.batch_size, 1)
-            loss=dqn2.train(batch2)
-            total_loss+=loss
+            loss = dqn2.train(batch2)
+            total_loss += loss
+
         avg_loss=total_loss/p.gradient_steps_per_iter
 
         # logging
@@ -117,11 +140,11 @@ def train_dqn(dqn1=None, dqn2=None, num_iterations=p.num_iterations, episodes_pe
         logging.info("------------------------")
         if i % p.intermediate_test == p.intermediate_test-1:
             test_stopwatch=Stopwatch(start=True)
-            logging.info("Testing model")        
-            # dqn1.set_train(False)
-            # dqn2.set_train(False)
+            logging.info("Testing model")
+            dqn1.set_train(False)
+            dqn2.set_train(False)
             policy1 = dqn1.get_policy()
-            policy2 = dqn2.get_policy()          
+            policy2 = dqn2.get_policy()
             model_save_path = log_dir + "/" + str(i)
             torch.save(dqn1.q_network.state_dict(), model_save_path + '_1')
             torch.save(dqn2.q_network.state_dict(), model_save_path + '_2')
