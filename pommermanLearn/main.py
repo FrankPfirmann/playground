@@ -96,7 +96,8 @@ def train_dqn(dqn1=None, dqn2=None, num_iterations=p.num_iterations, episodes_pe
                 batch1 = data_generator.get_episode_buffer()
             else:
                 batch1 = data_generator.get_batch_buffer(p.batch_size, 0)
-            loss = dqn1.train(batch1)
+            loss, indexes, td_error = dqn1.train(batch1)
+            data_generator.update_priorities(indexes, td_error, 0)
             total_loss += loss
 
         for _ in range(p.gradient_steps_per_iter):
@@ -107,7 +108,8 @@ def train_dqn(dqn1=None, dqn2=None, num_iterations=p.num_iterations, episodes_pe
                 batch2 = data_generator.get_episode_buffer()
             else:
                 batch2 = data_generator.get_batch_buffer(p.batch_size, 1)
-            loss = dqn2.train(batch2)
+            loss, indexes, td_error = dqn2.train(batch2)
+            data_generator.update_priorities(indexes, td_error, 1)
             total_loss += loss
 
         avg_loss=total_loss/p.gradient_steps_per_iter
@@ -180,7 +182,12 @@ def main(args):
 
     p.num_iterations=args.iterations
 
-    dqn1, dqn2 = train_dqn(num_iterations=10000, enemy='smart_random', augmentors=[])
+    train_dqn(num_iterations=2000, enemy='smart_random', augmentors=[])
+    
+    p.gradient_steps_per_iter = 200
+    p.batch_size = 32
+    train_dqn(num_iterations=2000, enemy='smart_random', augmentors=[DataAugmentor_v1()])
+
     # dqn1, dqn2 = train_dqn(dqn1=dqn1, dqn2=dqn2, num_iterations=10000, enemy='smart_random_no_bomb', augmentors=[])
 
 # Only run main() if script if executed explicitly

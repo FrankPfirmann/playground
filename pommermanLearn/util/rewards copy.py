@@ -1,6 +1,5 @@
 import numpy as np
 
-from pommerman import constants
 from pommerman.constants import Item
 from util.data import calc_dist
 
@@ -73,6 +72,7 @@ def skynet_reward(obs, act, nobs, fifo, agent_inds, log):
             continue
         log_ind = 0 if i <= 1 else 1
         teammate_ind = i + 2 if log_ind == 0 else i - 2
+        dist = calc_dist(i, nobs, teammate_ind)
         n_enemies_prev = 0
         alive_prev = obs[i]['alive']
         for e in obs[i]['enemies']:
@@ -98,9 +98,9 @@ def skynet_reward(obs, act, nobs, fifo, agent_inds, log):
         if n_enemies_prev - n_enemy_cur > 0:
             r[i] += (n_enemies_prev - n_enemy_cur) * 0.5
             log[log_ind][0] += (n_enemies_prev - n_enemy_cur) * 0.5
-        # if prev_n_teammate - cur_n_teammate > 0:
-        #     r[i] -= (prev_n_teammate-cur_n_teammate)*0.5
-        #     log[log_ind][4] -= (prev_n_teammate-cur_n_teammate)*0.5
+        if prev_n_teammate - cur_n_teammate > 0:
+            r[i] -= (prev_n_teammate-cur_n_teammate)*0.5
+            log[log_ind][4] -= (prev_n_teammate-cur_n_teammate)*0.5
         if not prev_can_kick and cur_can_kick:
             r[i] += 0.02
             log[log_ind][1] += 0.02
@@ -113,91 +113,29 @@ def skynet_reward(obs, act, nobs, fifo, agent_inds, log):
         if cur_position not in fifo[i]:
             r[i] += 0.001
             log[log_ind][2] += 0.001
+        # if act[i] == 5:
+        #     r[i] += 0.025 / dist
+        #     log[log_ind][3] += 0.025 / dist
         if len(fifo[i]) == 121:
             fifo[i].pop()
         fifo[i].append(cur_position)
     return r
 
+def woods_close_to_bomb_reward(obs, bomb_pos, blast_strength, steps_n):
+    ''' returns the number ob wooden blocks that would be destroyed by a given bomb '''
 
-def _get_positions(board, value):
-    wood_bitmap = np.isin(board, value).astype(np.uint8)
-    wood_positions = np.where(wood_bitmap == 1)
-    return list(zip(wood_positions[0], wood_positions[1]))
-
-
-def woods_close_to_bomb_reward(obs, bomb_pos, blast_strength, agent_ids):
-    '''
-    :param obs: observation
-    :param bomb_pos: position bomb is layed
-    :param blast_strength: current blast strength of the agent
-    :param agent_ids: agent ids of teammates
-    :return: reward for laying bombs near wood and enemies
-    '''
-
+    num_wood = 0
     board = obs['board']
-    wood_positions = _get_positions(board, constants.Item.Wood.value)
-    rigid_positions = _get_positions(board, constants.Item.Rigid.value)
-    enemy_ids = [10,11,12,13]
-    for id in agent_ids:
-        enemy_ids.remove(id)
-    enemy_positions =[]
-    for e in enemy_ids:
-        enemy_positions += _get_positions(board, e)
-    woods_in_range = 0.0
-    enemies_in_range = 0.0
+    wood_bitmap = np.isin(board, 2).astype(np.uint8)
+    wood_positions = np.where(wood_bitmap==1)
+    wood_positions = list(zip(wood_positions[0], wood_positions[1]))
+
     # for every wooden block check if it would be destroyed
-    left_pos = np.asarray(bomb_pos)
-    for i in range(1, blast_strength+1):
-        if left_pos[0] == 0:
-            break
-        left_pos = (bomb_pos[0] - i, bomb_pos[1])
-        if left_pos in rigid_positions:
-            break
-        elif left_pos in enemy_positions:
-            enemies_in_range +=1
-            break
-        elif left_pos in wood_positions:
-            woods_in_range += 1
-            break
-    right_pos = np.asarray(bomb_pos)
-    for i in range(1, blast_strength + 1):
-        if right_pos[0] == len(board)-1:
-            break
-        right_pos = (bomb_pos[0] + i, bomb_pos[1])
-        if right_pos in rigid_positions:
-            break
-        elif right_pos in enemy_positions:
-            enemies_in_range += 1
-            break
-        elif right_pos in wood_positions:
-            woods_in_range += 1
-            break
-    down_pos = np.asarray(bomb_pos)
-    for i in range(1, blast_strength + 1):
-        if down_pos[1] == 0:
-            break
-        down_pos = (bomb_pos[0], bomb_pos[1] - i)
-        if down_pos in rigid_positions:
-            break
-        elif down_pos in enemy_positions:
-            enemies_in_range += 1
-            break
-        elif down_pos in wood_positions:
-            woods_in_range += 1
-            break
-    up_pos = np.asarray(bomb_pos)
-    for i in range(1, blast_strength + 1):
-        if up_pos[1] == len(board)-1:
-            break
-        up_pos = (bomb_pos[0], bomb_pos[1] + i)
-        if up_pos in rigid_positions:
-            break
-        elif up_pos in enemy_positions:
-            enemies_in_range += 1
-            break
-        elif up_pos in wood_positions:
-            woods_in_range += 1
-            break
-    # for each wood close to bomb reward 0.1
-    reward = (0.05 * woods_in_range) + (0.5 * enemies_in_range)
+    for wood_pos in wood_positions:
+        dist_wood_bomb = np.abs(np.array(list(wood_pos))-np.array(list(bomb_pos)))
+        if np.any(dist_wood_bomb == 0):
+            if np.all(dist_wood_bomb < blast_strength):
+                num_wood += 1
+    # for each wood close to bomb reward 0.1 discounted ober time
+    reward = (0.1 * num_wood) * (0.99**steps_n)
     return reward

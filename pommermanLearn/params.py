@@ -1,10 +1,10 @@
 # main.py
 num_iterations = 1000000
 episodes_per_iter = 1
-gradient_steps_per_iter = 10
+gradient_steps_per_iter = 100
 batch_size = 16
-episodes_per_eval = 10
-intermediate_test = 10
+episodes_per_eval = 5
+intermediate_test = 50
 centralize_planes = True
 render_tests = False
 env = 'PommeTeamCompetition-v0'  # PommeFFACompetition-v0 or OneVsOne-v0 or PommeTeamCompetition-v0
@@ -31,7 +31,7 @@ exploration_dropoff = 0.01
 explortation_min = 0.05
 #data_generator.py
 
-replay_size = 50000
+replay_size = 2**16 # must be a power of 2 to be compatible with prioritized replay
 max_steps = 800
 reward_func = 'SkynetReward' #SkynetReward, BombReward
 
