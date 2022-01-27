@@ -11,25 +11,24 @@ import pommerman as pm
 from pommerman.agents.simple_agent import SimpleAgent
 
 from embeddings import PommerLinearAutoencoder
+from embeddings import PommerConvAutoencoder
 from util.data import transform_observation
 
+# General
 log_level=logging.INFO
 train=True
 evaluate=True
-num_epochs  = 1000
-learning_rate=0.001
-num_games   = 1
+
+# Dataset
+dataset_path = None # If set the dataset will be loaded from disk *instead* of generated
+num_games   = 5
+dataset_type = 'flattened' # One of 'planes' or 'flattened'
 train_split = 0.8
 val_split   = 1-train_split
 
-# Generate data by playing games with simple agents
-agent_list=[
-    SimpleAgent(),
-    SimpleAgent(),
-    SimpleAgent(),
-    SimpleAgent()
-]
-env = pm.make("PommeRadioCompetition-v2", agent_list)
+# Training
+num_epochs  = 10000
+learning_rate=0.001
 
 def play_game(env):
     """
@@ -49,15 +48,27 @@ def play_game(env):
 
     return observations
 
-def generate_dataset(num_games):
+def generate_dataset(num_games, flatten=True):
     X=[]
     for i in range(num_games):
+        # Generate data by playing games with simple agents
+        agent_list=[
+            SimpleAgent(),
+            SimpleAgent(),
+            SimpleAgent(),
+            SimpleAgent()
+        ]
+
+        env = pm.make("PommeRadioCompetition-v2", agent_list)
         observations=play_game(env)
         for observation in observations:
             for view in observation:
                 planes = transform_observation(view, p_obs=True, centralized=True)
-                flattened = planes.flatten()
-                X.append(np.array(flattened, dtype=np.float32))
+                if flatten:
+                    x = planes.flatten()
+                else:
+                    x = planes
+                X.append(np.array(x, dtype=np.float32))
         logging.info(f"Finished game {i+1}/{num_games} in {len(observations)} steps")
     return X
     
@@ -69,7 +80,7 @@ def train_model(model, X_train, X_val, epochs=1, lr=0.001):
         running_loss = 0.0
         for x in X_train:
             optimizer.zero_grad()
-            y = model(x)
+            y = model(x.unsqueeze(0)).squeeze()
             loss = criterion(y, x)
             loss.backward()
             optimizer.step()
@@ -115,11 +126,10 @@ def setup_logger(log_level=logging.INFO):
         datefmt="%Y-%m-%d %H:%M:%S"
     )
 
-def save_model(model, path):
+def save_model(model: nn.Module, path: str) -> None:
     torch.save(model.state_dict(), path)
 
-def load_model(path):
-   model = PommerLinearAutoencoder(1053)
+def load_model(path: str, model: nn.Module) -> nn.Module:
    model.load_state_dict(torch.load(path))
    model.eval() 
    return model
@@ -137,12 +147,14 @@ def evaluate_model(model, data, threshold=0.5):
     precision=[]
     accuracy=[]
     for x in data:
-        reconstruction = model.forward(x).detach().numpy()
-        thresholded = (reconstruction>threshold)*1
-        #accuracy.append(accuracy_score(x.detach().numpy(), np.round(reconstruction.detach().numpy())))
-        accuracy.append(accuracy_score(x.detach().numpy(), thresholded))
-        precision.append(precision_score(x.detach().numpy(), thresholded))
-        recall.append(recall_score(x.detach().numpy(), thresholded))
+        reconstruction = model.forward(x.unsqueeze(0)).detach().numpy()
+
+        expected = x.detach().numpy().flatten()
+        actual = ((reconstruction>threshold)*1).flatten()
+
+        accuracy.append(accuracy_score(expected, actual))
+        precision.append(precision_score(expected, actual))
+        recall.append(recall_score(expected, actual))
     return (threshold, sum(accuracy)/len(accuracy), sum(precision)/len(precision), sum(recall)/len(recall))
 
 def test_thresholds(model, data, thresholds=[]):
@@ -155,9 +167,22 @@ def test_thresholds(model, data, thresholds=[]):
 
 setup_logger(log_level=log_level)
 
-logging.info(f"Generating dataset from {num_games} games")
-data = generate_dataset(num_games=num_games)
-logging.info(f"Generated {len(data)} views from all agents")
+
+#model = PommerConvAutoencoder()
+model = PommerLinearAutoencoder(1053)
+
+data = None
+if dataset_path is None:
+    logging.info(f"Generating dataset from {num_games} games")
+    if dataset_type == 'flattened':
+        flatten = True
+    else:
+        flatten = False
+    data = generate_dataset(num_games=num_games, flatten=flatten)
+else:
+    logging.info(f"Loading dataset from {dataset_path}")
+    data = np.load(dataset_path, allow_pickle=True)
+logging.info(f"Proceeding with {len(data)} samples")
 
 split=int(len(data)*train_split)
 logging.info(f"Preprocessing train data ({split} items)")
@@ -168,7 +193,6 @@ X_val   = preprocess_data(data[split:])
 
 if train:
     logging.info("Setting up model")
-    model = PommerLinearAutoencoder(1053)
     model.to(get_device())
 
     logging.info("Starting training of model")
@@ -177,7 +201,8 @@ if train:
 if evaluate:
     path="./data/models/embeddings_net_pobs-best.pth"
     logging.info(f"Loading model {path}")
-    model = load_model(path)
+
+    model = load_model(path, model)
     model.mode='both'
 
     logging.info("Evaluating with treshold of 0.5")
