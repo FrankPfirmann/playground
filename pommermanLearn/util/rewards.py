@@ -98,9 +98,9 @@ def skynet_reward(obs, act, nobs, fifo, agent_inds, log):
         if n_enemies_prev - n_enemy_cur > 0:
             r[i] += (n_enemies_prev - n_enemy_cur) * 0.5
             log[log_ind][0] += (n_enemies_prev - n_enemy_cur) * 0.5
-        # if prev_n_teammate - cur_n_teammate > 0:
-        #     r[i] -= (prev_n_teammate-cur_n_teammate)*0.5
-        #     log[log_ind][4] -= (prev_n_teammate-cur_n_teammate)*0.5
+        if prev_n_teammate - cur_n_teammate > 0:
+            r[i] -= (prev_n_teammate-cur_n_teammate)*0.5
+            log[log_ind][4] -= (prev_n_teammate-cur_n_teammate)*0.5
         if not prev_can_kick and cur_can_kick:
             r[i] += 0.02
             log[log_ind][1] += 0.02
