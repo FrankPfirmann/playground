@@ -20,15 +20,16 @@ train=True
 evaluate=True
 
 # Dataset
-dataset_path = None # If set the dataset will be loaded from disk *instead* of generated
-num_games   = 5
-dataset_type = 'flattened' # One of 'planes' or 'flattened'
+dataset_path = None #"./data/4simple-100games-planes.npy" # If set the dataset will be loaded from disk *instead* of generated
+num_games   = 1
+dataset_type = 'planes' # One of 'planes' or 'flattened'
 train_split = 0.8
 val_split   = 1-train_split
 
 # Training
-num_epochs  = 10000
-learning_rate=0.001
+num_epochs    = 10000
+batch_size    = 16
+learning_rate = 0.001
 
 def play_game(env):
     """
@@ -72,16 +73,20 @@ def generate_dataset(num_games, flatten=True):
         logging.info(f"Finished game {i+1}/{num_games} in {len(observations)} steps")
     return X
     
-def train_model(model, X_train, X_val, epochs=1, lr=0.001):
+def train_model(model, X_train, X_val, epochs=1, batch_size=16, lr=0.001):
     criterion = nn.BCELoss()
     optimizer = optim.Adam(model.parameters(), lr=lr)
     train_loss = []
     for epoch in range(epochs):
+        indices = torch.randperm(X_train.size()[0])
         running_loss = 0.0
-        for x in X_train:
+        for i in range(0, X_train.size()[0], batch_size):
+            batch_indices = indices[i:i+batch_size]
+            X_batch = X_train[batch_indices] # Get a batch form the dataset
+
             optimizer.zero_grad()
-            y = model(x.unsqueeze(0)).squeeze()
-            loss = criterion(y, x)
+            y = model(X_batch)
+            loss = criterion(y, X_batch)
             loss.backward()
             optimizer.step()
             running_loss += loss.item()
@@ -168,8 +173,8 @@ def test_thresholds(model, data, thresholds=[]):
 setup_logger(log_level=log_level)
 
 
-#model = PommerConvAutoencoder()
-model = PommerLinearAutoencoder(1053)
+model = PommerConvAutoencoder()
+#model = PommerLinearAutoencoder(1053)
 
 data = None
 if dataset_path is None:
@@ -196,7 +201,7 @@ if train:
     model.to(get_device())
 
     logging.info("Starting training of model")
-    loss=train_model(model, X_train, X_val, epochs=num_epochs, lr=learning_rate)
+    loss=train_model(model, X_train, X_val, epochs=num_epochs, batch_size=batch_size, lr=learning_rate)
 
 if evaluate:
     path="./data/models/embeddings_net_pobs-best.pth"
