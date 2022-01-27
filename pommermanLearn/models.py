@@ -140,12 +140,12 @@ class Pommer_Q(nn.Module):
         return transformer
 
 class PommerQEmbeddingMLP(nn.Module):
-    def __init__(self, embedding_model):
+    def __init__(self, embedding_model, embedding_size=128):
         super(PommerQEmbeddingMLP, self).__init__()
         self.embedding_model = embedding_model
 
         self.linear=nn.Sequential(
-            nn.Linear(in_features=128, out_features=128),
+            nn.Linear(in_features=embedding_size, out_features=128),
             nn.ReLU(),
             nn.Linear(in_features=128, out_features=128),
             nn.ReLU(),
