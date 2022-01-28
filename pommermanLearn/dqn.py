@@ -76,13 +76,15 @@ class DQN(object):
     def set_exploration(self, exp):
         self.exploration = exp
 
-    def update_q(self, obs, act, rwd, nobs, done):
+    def update_q(self, obs, act, rwd, nobs, done, weights=None):
         obs_batch = obs
         nobs_batch = nobs
         act_batch = act
         rwd_batch = rwd
         done_batch = done
 
+        q = self.q_network(obs_batch).squeeze()
+        q = q.gather(1, act_batch.long().unsqueeze(1))
         with torch.no_grad():
             if self.double_q:
                 next_q = self.q_network(nobs_batch).squeeze()
@@ -94,14 +96,16 @@ class DQN(object):
                 next_q = self.q_target_network(nobs_batch).squeeze()
                 max_next_q = next_q.max(1)[0].unsqueeze(1)
                 q_target = rwd_batch + p.gamma * max_next_q * (1.0 - done_batch)
-        q = self.q_network(obs_batch).squeeze()
-        q = q.gather(1, act_batch.long().unsqueeze(1))
+            # get td error for prioritized exp replay
+            td_error = q - q_target
         loss = F.mse_loss(q_target, q)
-
+        if p.prioritized_replay:
+            weights = torch.tensor(weights) 
+            loss = torch.mean(weights * loss)
         self.q_optim.zero_grad()
         loss.backward()
         self.q_optim.step()
-        return loss.item()
+        return loss.item(), td_error
 
     def update_q_backward(self, obs, act, rwd, nobs, done, q_t, y):
         obs_batch = [torch.FloatTensor(obs).to(self.device) for obs in list(zip(*obs))]
@@ -129,8 +133,12 @@ class DQN(object):
             return q_t
 
     def train(self, batch):
-
-        obs_batch, act_batch, rwd_batch, nobs_batch, done_batch = batch
+        if p.prioritized_replay:
+            obs_batch, act_batch, rwd_batch, nobs_batch, done_batch, weights, indexes = batch
+        else:
+            obs_batch, act_batch, rwd_batch, nobs_batch, done_batch = batch
+            weights = None
+            indexes = None
         if p.episode_backward:
             T = len(obs_batch)
             q_t = self._init_target_table(nobs_batch)
@@ -145,8 +153,7 @@ class DQN(object):
             nobs_batch = [np.array(obs) for obs in list(zip(*nobs_batch))]
             nobs_batch = [torch.FloatTensor(nobs).to(self.device) for nobs in nobs_batch]
             done_batch = torch.FloatTensor(done_batch).to(self.device)
-            loss = self.update_q(obs_batch, act_batch, rwd_batch, nobs_batch, done_batch)
+            loss, td_error = self.update_q(obs_batch, act_batch, rwd_batch, nobs_batch, done_batch, weights)
         self.update_target(self.q_target_network, self.q_network, p.tau)
-        return loss
-
+        return loss, indexes, td_error
 
