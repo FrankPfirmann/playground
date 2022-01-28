@@ -25,6 +25,7 @@ from logger import Logger
 import params as p
 from util.data import transform_observation
 from util.rewards import staying_alive_reward, go_down_right_reward, bomb_reward, skynet_reward
+from pommerman.constants import Action
 
 class DataGeneratorPommerman:
     def __init__(self, env, augmentors: list=[])-> None:
@@ -41,10 +42,18 @@ class DataGeneratorPommerman:
         self.episode_buffer = []
         self.episode_buffer_length = 0
 
+        # prioritized replay variables
+        if p.prioritized_replay:
+            self.alpha = 1
+            self.priority_sums = [[0 for _ in range(2 * p.replay_size)], [0 for _ in range(2 * p.replay_size)]] # store priorities in binary segment trees
+            self.priority_mins = [[float('inf') for _ in range(2 * p.replay_size)], [float('inf') for _ in range(2 * p.replay_size)]] # store priorities in binary segment trees
+            self.max_priorities = [1.0, 1.0]
+            self.sizes = [0, 0]
+
         self.agents_n = 2 if self.env == 'OneVsOne-v0' or self.env.startswith("custom") else 4
         self.player_agents_n = int(self.agents_n/2)
         self.buffers = [[] for _ in range(self.player_agents_n)]
-        self.idx = 0
+        self.idxs = [0, 0]
         self.augmentors = augmentors
 
         self.logger = Logger('log')
@@ -53,12 +62,99 @@ class DataGeneratorPommerman:
         if len(self.buffers[agent_num]) < p.replay_size:
             self.buffers[agent_num].append([obs, act, [rwd], nobs, [done]])
         else:
-            self.buffers[agent_num][self.idx] = [obs, act, [rwd], nobs, [done]]
-        self.idx = (self.idx + 1) % p.replay_size
+            self.buffers[agent_num][self.idxs[agent_num]] = [obs, act, [rwd], nobs, [done]]
 
-    def get_batch_buffer(self, size, agent_num):
-        batch = list(zip(*random.sample(self.buffers[agent_num], size)))
-        return np.array(batch[0]), np.array(batch[1]), np.array(batch[2]), np.array(batch[3]), np.array(batch[4])
+        if p.prioritized_replay:
+            # set priority of new transitions to max_priority
+            priority_alpha = self.max_priorities[agent_num] ** self.alpha
+
+            self._set_priority_min(self.idxs[agent_num], priority_alpha, agent_num)
+            self._set_priority_sum(self.idxs[agent_num], priority_alpha, agent_num)
+
+        self.idxs[agent_num] = (self.idxs[agent_num] + 1) % p.replay_size
+
+    def _set_priority_min(self, idx, priority_alpha, agent_num):
+        ''' Update the minimum priotity tree'''
+        # look at leaves of binary tree
+        idx += p.replay_size 
+        self.priority_mins[agent_num][idx] = priority_alpha
+        # update whole tree
+        while idx >= 2:
+            idx //= 2 # index of parent 
+            self.priority_mins[agent_num][idx] = min(self.priority_mins[agent_num][2 * idx], self.priority_mins[agent_num][2 * idx + 1])
+
+    def _set_priority_sum(self, idx, priority_alpha, agent_num):
+        ''' Update the maximum priority tree'''
+        # look at leaves of tree
+        idx += p.replay_size
+        self.priority_sums[agent_num][idx] = priority_alpha
+        # update whole tree
+        while idx >= 2:
+            idx //= 2 # index of parent
+            self.priority_sums[agent_num][idx] = self.priority_sums[agent_num][2 * idx] + self.priority_sums[agent_num][2 * idx + 1]
+
+    def _sum(self, agent_num):
+        ''' get sum of priorities'''
+        return self.priority_sums[agent_num][1]
+
+    def _min(self, agent_num):
+        ''' get min of priorities'''
+        return self.priority_mins[agent_num][1]
+
+    def find_prefix_sum_idx(self, prefix_sum, agent_num):
+        ''' find smallest index, s.t. the sum up to that index is greater or equal to prefix_sum'''
+        idx = 1 # start from root
+        while idx < p.replay_size:
+            if self.priority_sums[agent_num][idx * 2] > prefix_sum: # if sum of left branch is bigger, go to left branch
+                idx = 2 * idx
+            else:   # else go to right branch and substract sum of left branch
+                prefix_sum -= self.priority_sums[agent_num][idx * 2] 
+                idx = 2 * idx + 1
+        return idx - p.replay_size
+
+    def get_batch_buffer(self, size, agent_num, beta=p.beta):
+        ''' sample transitions from buffer (including weights and indexes with prioritized replay '''
+        if not p.prioritized_replay:
+            batch = list(zip(*random.sample(self.buffers[agent_num], size)))
+            return np.array(batch[0]), np.array(batch[1]), np.array(batch[2]), np.array(batch[3]), np.array(batch[4])
+        else:
+            samples = {
+                'weights': np.zeros(shape=size, dtype=np.float32),
+                'indexes': np.zeros(shape=size, dtype=np.int32)
+                }
+
+            # sample indexes according to probability
+            for i in range(size):
+                prefix_sum = random.random() * self._sum(agent_num)
+                idx = self.find_prefix_sum_idx(prefix_sum, agent_num)
+                samples['indexes'][i] = idx
+
+            # calculate max weight (used to calculate individual weights)
+            prob_min = self._min(agent_num) / self._sum(agent_num)
+            max_weight = (prob_min * self.sizes[agent_num]) ** (-beta)
+
+            # calculate weights
+            for i in range (size):
+                idx = samples['indexes'][i]
+                prob = self.priority_sums[agent_num][idx + p.replay_size] / self._sum(agent_num)
+                weight = (prob * self.sizes[agent_num]) ** (-beta)
+                samples['weights'][i] = weight / max_weight
+            
+            # get sample transitions
+            transitions = list(zip(*np.array(self.buffers[agent_num])[samples['indexes']]))
+
+            return np.array(transitions[0]), np.array(transitions[1]), np.array(transitions[2]), np.array(transitions[3]), np.array(transitions[4]), \
+                samples['weights'], samples['indexes']
+
+    def update_priorities(self, indexes, priorities, agent_num):
+        ''' update priorities of transitions'''
+        for idx, priority in zip(indexes, priorities):
+            priority = abs(priority[0].item())
+            self.max_priorities[agent_num] = max(self.max_priorities[agent_num], priority)
+            priority_alpha = priority ** self.alpha
+            self._set_priority_min(idx, priority_alpha, agent_num)
+            self._set_priority_sum(idx, priority_alpha, agent_num)
+        
 
     def get_batch_buffer_back(self, size, j):
         sample_pool = []
