@@ -199,5 +199,5 @@ def woods_close_to_bomb_reward(obs, bomb_pos, blast_strength, agent_ids):
             woods_in_range += 1
             break
     # for each wood close to bomb reward 0.1
-    reward = (0.05 * woods_in_range) + (0.5 * enemies_in_range)
+    reward = (0.002 * woods_in_range) + (0.005 * enemies_in_range)
     return reward

@@ -52,7 +52,7 @@ def _centralize_planes(planes, pos):
     centralized_planes = []
     for p in planes:
         central = np.zeros((central_b_size, central_b_size))
-        start = ((b_size - 1) - pos[0], (b_size - 1) - pos[1])
+        start = (max((b_size - 1) - pos[0], 0), max((b_size - 1) - pos[1], 0))
         central[start[0]:start[0] + b_size, start[1]:start[1] + b_size] = p
         centralized_planes.append(central)
 

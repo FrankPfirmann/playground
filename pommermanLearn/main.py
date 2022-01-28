@@ -61,7 +61,7 @@ def train_dqn(dqn1=None, dqn2=None, num_iterations=p.num_iterations, episodes_pe
     logging.info(f"Staring run {run_name}")
     writer = SummaryWriter(log_dir=log_dir)
     backsize = 1
-    backplay_interval = int(np.floor(p.num_iterations/1000))
+    backplay_interval = max(1, int(np.floor(p.num_iterations/1000)))
     explo = p.exploration_noise
     # training loop
     for i in range(num_iterations):
@@ -72,8 +72,8 @@ def train_dqn(dqn1=None, dqn2=None, num_iterations=p.num_iterations, episodes_pe
 
         # generate data an store normalized act counts and win ration
         res, ties, avg_rwd, act_counts, avg_steps = data_generator.generate(episodes_per_iter, policy1, policy2, enemy, dqn1.q_network.get_transformer(), 'train', 'train', max_steps)
-        act_counts[0] = [act/sum(act_counts[0]) for act in act_counts[0]]
-        act_counts[1] = [act/sum(act_counts[1]) for act in act_counts[1]]
+        act_counts[0] = [act/max(1, sum(act_counts[0]))  for act in act_counts[0]]
+        act_counts[1] = [act/max(1, sum(act_counts[1])) for act in act_counts[1]]
 
         explo = max(p.explortation_min, explo - p.exploration_dropoff)
         dqn1.set_exploration(explo)

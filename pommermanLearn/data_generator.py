@@ -116,7 +116,7 @@ class DataGeneratorPommerman:
             elif agent_str == 'cautious':
                 agent_list[i] = CautiousAgent()
             else:
-                print('unsupported opponent type!')
+                logging.error('unsupported opponent type!')
                 sys.exit(1)
         if self.agents_n == 2:
             agent_inds = [0 + agent_ind]
