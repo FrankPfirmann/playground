@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 # solve error #15
-import os    
-os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
 import argparse
 import logging
@@ -19,6 +17,10 @@ from data_augmentation import DataAugmentor_v1
 from data_generator import DataGeneratorPommerman
 from dqn import DQN
 from models import Pommer_Q
+from models import PommerQEmbeddingMLP
+from models import PommerQEmbeddingRNN
+from embeddings import PommerLinearAutoencoder
+from embeddings import PommerConvAutoencoder
 from util.analytics import Stopwatch
 from util.data import transform_observation_simple, transform_observation_partial, transform_observation_centralized
 
@@ -39,13 +41,27 @@ def test_pommerman_dqn():
     else:
         transform_func = transform_observation_simple
 
+    # LSTM model with object embeddings:
+    """
+    path="./data/models/PommerConvAutoEncoder-64-db16e0d.pth"
+    embedding_model = PommerConvAutoencoder(embedding_dims=64)
+    embedding_model.load_state_dict(torch.load(path))
+    embedding_model.eval() 
+    embedding_model.mode='encode'
+    q_target = PommerQEmbeddingRNN(embedding_model)
+    q = PommerQEmbeddingRNN(embedding_model)
+    """
+
+    
+    # Convolutional model without embeddings
     q = Pommer_Q(p.p_observable, transform_func)
     torch.manual_seed(p.seed)
     q_target = Pommer_Q(p.p_observable, transform_func)
     algo = DQN(q, q_target)
+
     data_generator = DataGeneratorPommerman(
-	p.env,
-	augmenter=[
+	    p.env,
+	    augmenter=[
             #DataAugmentor_v1()
         ])
 
