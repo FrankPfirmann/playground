@@ -31,8 +31,8 @@ def transform_observation(obs, p_obs=False, centralized=False):
         np.isin(board, Item.Agent1.value).astype(plane_type),     # 9
         np.isin(board, Item.Agent2.value).astype(plane_type),     # 10
         np.isin(board, Item.Agent3.value).astype(plane_type),     # 11
-        obs['flame_life'].astype(plane_type),
-        obs['bomb_life'].astype(plane_type)
+        np.array(obs['flame_life']).astype(plane_type),
+        np.array(obs['bomb_life']).astype(plane_type)
         #np.isin(board, Item.Fog.value).astype(np.uint8)         # 12
     ]
     if p_obs:

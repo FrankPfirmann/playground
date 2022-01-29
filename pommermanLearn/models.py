@@ -31,7 +31,7 @@ class Pommer_Q(nn.Module):
         self.pool_kernel_size = 2
         self.pool_kernel_stride = 2
         self.last_cnn_depth = 32
-        self.input_dim = 256
+        self.input_dim = 64
         self.planes_num = 15 if p_central else 14
         self.padding = 1
         self.use_memory = False
@@ -39,10 +39,10 @@ class Pommer_Q(nn.Module):
         self.memory = None
 
         self.conv = nn.Sequential(
-            nn.Conv2d(in_channels=self.planes_num, out_channels=self.last_cnn_depth, kernel_size=(3, 3), stride=(1, 1)),\
-            nn.MaxPool2d((2,2), padding=self.padding, stride=2),\
-            nn.Conv2d(in_channels=32, out_channels=256, kernel_size=(3, 3), stride=(1, 1)),
-            nn.MaxPool2d((2,2),stride=2),
+            nn.Conv2d(in_channels=self.planes_num, out_channels=64, kernel_size=(3, 3), stride=(1, 1)),\
+            nn.Conv2d(in_channels=64, out_channels=64, kernel_size=(3, 3), stride=(1, 1)),
+            nn.Conv2d(in_channels=64, out_channels=64, kernel_size=(3, 3), stride=(1, 1)),
+            nn.Conv2d(in_channels=64, out_channels=64, kernel_size=(3, 3), stride=(1, 1)),
             nn.Flatten()
         )
         self.board_transform_func = board_transform_func
