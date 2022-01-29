@@ -187,3 +187,66 @@ class PommerQEmbeddingMLP(nn.Module):
             ]
 
         return transformer
+
+class PommerQEmbeddingRNN(nn.Module):
+    def __init__(self, embedding_model):
+        super(PommerQEmbeddingRNN, self).__init__()
+        self.embedding_model = embedding_model
+        self.memory=[]
+
+        # Stacked lstm
+        self.rnn = [
+            nn.LSTM(64, 64),
+            nn.LSTM(64, 64),
+            nn.LSTM(64, 64),
+            nn.LSTM(64, 64),
+            nn.LSTM(64, 64),
+            nn.LSTM(64, 64),
+            nn.LSTM(64, 64),
+            nn.LSTM(64, 64),
+            nn.LSTM(64, 64),
+            nn.LSTM(64, 64)
+        ]
+
+        self.linear=nn.Sequential(
+            nn.Flatten(),
+            nn.ReLU(),
+            nn.Linear(in_features=64, out_features=6),
+            nn.Softmax(dim=-1)
+        )
+
+
+    def forward(self, obs):
+        x_board=obs[0] # Board Embedding
+
+        x = x_board
+        for cell in self.rnn:
+            x = cell(x)[0]
+
+        x = self.linear(x).squeeze()
+        return x
+
+    def get_transformer(self) -> Callable:
+        """
+        Return a callable for input transformation.
+        
+        The callable should take a ``dict`` containing data of a single
+        observation from the Pommerman environment and return a ``list``
+        of individual numpy arrays that can be used later as an input
+        value in the ``forward()`` function.
+        """
+        def transformer(obs: dict) -> list:
+            planes = transform_observation(obs, p_obs=True, centralized=True)
+            planes = np.array(planes, dtype=np.float32)
+
+            # Generate embedding 
+            #flattened = planes.flatten()
+            #flattened = torch.tensor(flattened, device=torch.device('cpu')) # TODO: Make 'cpu' variable
+            X = torch.tensor(planes, device=torch.device('cpu')).unsqueeze(0)
+            board_embedding = self.embedding_model.forward(X)
+            board_embedding = board_embedding.detach().numpy()
+            return [
+                board_embedding
+            ]
+
+        return transformer
