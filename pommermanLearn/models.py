@@ -149,16 +149,18 @@ class PommerQEmbeddingMLP(nn.Module):
             nn.ReLU(),
             nn.Linear(in_features=128, out_features=128),
             nn.ReLU(),
-            nn.Linear(in_features=128, out_features=32),
+            nn.Linear(in_features=128, out_features=128),
             nn.ReLU(),
-            nn.Linear(in_features=32, out_features=6),
-            nn.Softmax(dim=0)
+            nn.Linear(in_features=128, out_features=128),
+            nn.ReLU(),
+            nn.Linear(in_features=128, out_features=6),
+            nn.Softmax(dim=2)
         )
 
     def forward(self, obs):
         x_board=obs[0] # Board Embedding
 
-        x = self.linear(x_board)#.unsqueeze(0)
+        x = self.linear(x_board).squeeze()
         return x
 
     def get_transformer(self) -> Callable:
@@ -172,11 +174,13 @@ class PommerQEmbeddingMLP(nn.Module):
         """
         def transformer(obs: dict) -> list:
             planes = transform_observation(obs, p_obs=True, centralized=True)
-            flattened = planes.flatten()
-
+            planes = np.array(planes, dtype=np.float32)
+            
+            # TODO: Make 'cpu' variable
             # Generate embedding 
-            flattened = torch.tensor(flattened, device=torch.device('cpu')) # TODO: Make 'cpu' variable
-            board_embedding = self.embedding_model.forward(flattened)
+            #flattened = torch.tensor(flattened, device=torch.device('cpu'))
+            X = torch.tensor(planes, device=torch.device('cpu')).unsqueeze(0)
+            board_embedding = self.embedding_model.forward(X)
             board_embedding = board_embedding.detach().numpy()
             return [
                 board_embedding

@@ -1,6 +1,6 @@
 import logging
 
-from sklearn.metrics import accuracy_score, precision_score, recall_score
+from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
 import numpy as np
 import torch
 import torch.nn as nn
@@ -20,7 +20,7 @@ train=True
 evaluate=True
 
 # Dataset
-dataset_path = None #"./data/4simple-100games-planes.npy" # If set the dataset will be loaded from disk *instead* of generated
+dataset_path = "./data/4simple-100games-planes.npy" # If set the dataset will be loaded from disk *instead* of generated
 num_games   = 1
 dataset_type = 'planes' # One of 'planes' or 'flattened'
 train_split = 0.8
@@ -100,8 +100,8 @@ def train_model(model, X_train, X_val, epochs=1, batch_size=16, lr=0.001):
         logging.info(f"Saving model to {path}")
         save_model(model, path)
         
-        threshold, accuracy, precision, recall = evaluate_model(model, X_val, threshold=0.5)
-        logging.info(f"Finished epoch {epoch+1}/{epochs}; Loss: {loss}; Accuracy: {accuracy}; Precision: {precision}; Recall: {recall}")#; Accuracy {accuracy_score(x_val, y_val)} Precision {precision_score(x_val, y_val)}; Recall {recall_score(x_val, y_val)}")
+        threshold, accuracy, precision, recall, f1 = evaluate_model(model, X_val, threshold=0.5)
+        logging.info(f"Finished epoch {epoch+1}/{epochs}; Loss: {loss}; Accuracy: {accuracy}; Precision: {precision}; Recall: {recall}; F1: {f1}")
     return train_loss
             
 def get_device():
@@ -148,19 +148,16 @@ def postprocess_data(y):
     return y
 
 def evaluate_model(model, data, threshold=0.5):
-    recall=[]
-    precision=[]
-    accuracy=[]
-    for x in data:
-        reconstruction = model.forward(x.unsqueeze(0)).detach().numpy()
+    actual = model.forward(data).detach().numpy().flatten()
+    actual = ((actual>threshold)*1)
 
-        expected = x.detach().numpy().flatten()
-        actual = ((reconstruction>threshold)*1).flatten()
+    expected = data.detach().numpy().flatten()
 
-        accuracy.append(accuracy_score(expected, actual))
-        precision.append(precision_score(expected, actual))
-        recall.append(recall_score(expected, actual))
-    return (threshold, sum(accuracy)/len(accuracy), sum(precision)/len(precision), sum(recall)/len(recall))
+    accuracy = accuracy_score(expected, actual)
+    precision = precision_score(expected, actual)
+    recall = recall_score(expected, actual)
+    f1 = f1_score(expected, actual)
+    return (threshold, accuracy, precision, recall, f1)
 
 def test_thresholds(model, data, thresholds=[]):
     evaluations=[]
@@ -173,7 +170,7 @@ def test_thresholds(model, data, thresholds=[]):
 setup_logger(log_level=log_level)
 
 
-model = PommerConvAutoencoder()
+model = PommerConvAutoencoder(embedding_dims=64)
 #model = PommerLinearAutoencoder(1053)
 
 data = None
@@ -211,12 +208,12 @@ if evaluate:
     model.mode='both'
 
     logging.info("Evaluating with treshold of 0.5")
-    threshold, accuracy, precision, recall = evaluate_model(model, X_val, 0.5)
-    logging.info(f"Accuracy: {accuracy}; Precision: {precision}; Recall: {recall}")
+    threshold, accuracy, precision, recall, f1 = evaluate_model(model, X_val, 0.5)
+    logging.info(f"Accuracy: {accuracy}; Precision: {precision}; Recall: {recall}; F1: {f1}")
 
     logging.info("Evaluating tresholds in range of 0 to 1.0 in steps of 0.01")
     evaluations=test_thresholds(model, X_val, thresholds=[t/100 for t in range(101)])
     f = open("eval.csv", "w")
     f.write(f"threshold;accuracy;precision;recall")
     for evaluation in evaluations:
-        f.write(f"\n{evaluation[0]};{evaluation[1]};{evaluation[2]};{evaluation[3]}")
+        f.write(f"\n{evaluation[0]};{evaluation[1]};{evaluation[2]};{evaluation[3]};{evaluation[4]}")
