@@ -193,20 +193,10 @@ class PommerQEmbeddingRNN(nn.Module):
         super(PommerQEmbeddingRNN, self).__init__()
         self.embedding_model = embedding_model
         self.memory=[]
+        self.steps = 10
 
         # Stacked lstm
-        self.rnn = [
-            nn.LSTM(64, 64),
-            nn.LSTM(64, 64),
-            nn.LSTM(64, 64),
-            nn.LSTM(64, 64),
-            nn.LSTM(64, 64),
-            nn.LSTM(64, 64),
-            nn.LSTM(64, 64),
-            nn.LSTM(64, 64),
-            nn.LSTM(64, 64),
-            nn.LSTM(64, 64)
-        ]
+        self.rnn = [nn.LSTM(64, 64) for step in range(self.steps)]
 
         self.linear=nn.Sequential(
             nn.Flatten(),
@@ -217,11 +207,19 @@ class PommerQEmbeddingRNN(nn.Module):
 
 
     def forward(self, obs):
-        x_board=obs[0] # Board Embedding
+        while len(self.memory) >= self.steps:
+            self.memory.pop(0)
 
-        x = x_board
-        for cell in self.rnn:
-            x = cell(x)[0]
+        while len(self.memory) != self.steps:
+            self.memory.append(obs)
+
+        #x=obs[0] # Board Embedding
+
+        x = None
+        h = None
+        for obs_n, rnn_n in zip(self.memory, self.rnn):
+            x_n=obs_n[0]
+            x, h = rnn_n(x_n, h)
 
         x = self.linear(x).squeeze()
         return x
