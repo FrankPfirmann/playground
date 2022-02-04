@@ -5,6 +5,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.distributions import Categorical
+
 #TODO: express model structure as param
 from pommerman.constants import Item
 
@@ -56,10 +58,6 @@ class Pommer_Q(nn.Module):
             nn.ReLU(),
             nn.Linear(in_features=32, out_features=6)
         )
-
-        #self.conv.apply(init_weights)
-        #self.linear.apply(init_weights)
-        #self.combined.apply(init_weights)
 
     def validate_memory(self, nobs):
         if self.memory is None:
@@ -116,6 +114,130 @@ class Pommer_Q(nn.Module):
 
         x = self.combined(x1_2).unsqueeze(0)
         return x
+
+    def get_transformer(self) -> Callable:
+        """
+        Return a callable for input transformation.
+        
+        The callable should take a ``dict`` containing data of a single
+        observation from the Pommerman environment and return a ``list``
+        of individual numpy arrays that can be used later as an input
+        value in the ``forward()`` function.
+        """
+        def transformer(obs: dict) -> list:
+            return [
+                self.board_transform_func(obs),
+                np.array(np.hstack((
+                    np.array(obs['step_count']),
+                    np.array(list(obs['position'])),
+                    np.array(obs['ammo']),
+                    np.array(obs['can_kick']),
+                    np.array(obs['blast_strength'])
+                )))]
+
+        return transformer
+
+class ActorCritic(nn.Module):
+    def __init__(self, p_central, board_transform_func):
+        super(ActorCritic, self).__init__()
+
+        self.conv_kernel_size = 3
+        self.conv_kernel_stride = 1
+        self.pool_kernel_size = 2
+        self.pool_kernel_stride = 2
+        self.last_cnn_depth = 32
+        self.input_dim = 64
+        self.planes_num = 15 if p_central else 14
+        self.padding = 1
+        self.use_memory = False
+        self.use_memory = p.use_memory
+        self.memory = None
+
+        self.board_transform_func = board_transform_func
+
+
+        self.actor = nn.Sequential(
+            nn.Conv2d(in_channels=self.planes_num, out_channels=64, kernel_size=(3, 3), stride=(1, 1)),\
+            nn.Conv2d(in_channels=64, out_channels=64, kernel_size=(3, 3), stride=(1, 1)),
+            nn.Conv2d(in_channels=64, out_channels=64, kernel_size=(3, 3), stride=(1, 1)),
+            nn.Conv2d(in_channels=64, out_channels=64, kernel_size=(3, 3), stride=(1, 1)),
+            nn.Flatten(),
+            nn.Linear(64, 6),
+            nn.Softmax(dim=-1)
+        )
+
+        
+        # critic
+        self.critic = nn.Sequential(
+            nn.Conv2d(in_channels=self.planes_num, out_channels=64, kernel_size=(3, 3), stride=(1, 1)),\
+            nn.Conv2d(in_channels=64, out_channels=64, kernel_size=(3, 3), stride=(1, 1)),
+            nn.Conv2d(in_channels=64, out_channels=64, kernel_size=(3, 3), stride=(1, 1)),
+            nn.Conv2d(in_channels=64, out_channels=64, kernel_size=(3, 3), stride=(1, 1)),
+            nn.Flatten(),
+            nn.Linear(64, 1),
+        )
+
+    def validate_memory(self, nobs):
+        if self.memory is None:
+            return False
+
+        if self.memory[0].shape != nobs[0].shape:
+            return False
+
+        if self.memory[1].shape != nobs[1].shape:
+            return False
+
+        return True
+
+    def update_memory(self, nobs):
+        if self.memory is None or not self.validate_memory(nobs):
+            self.memory = nobs
+            return
+
+        # Invert fog to get field of view
+        fov = 1-nobs[0][..., 12, :, :]
+
+        for layer in range(12):
+            if layer in [0,1]: # Remember walls and passages always
+                forgetfulness=0.0
+            else: # Forget other layers that are out of view slowly
+                forgetfulness=p.forgetfullness
+            first = self.memory[0][..., layer, :, :]
+            second = nobs[0][..., layer, :, :]
+            merged = merge_views(first, second, fov, forgetfullness=forgetfulness)
+            nobs[0][..., layer, :, :] = merged
+
+        self.memory = nobs
+
+    def forward(self, obs, valid_actions=[]):
+
+        # if self.use_memory and self.p_obs:
+        #     # Memory in this form only makes sense with partial
+        #     # observability
+        #     self.update_memory(obs)
+        #     obs = self.memory
+
+        # x1=obs[0] # Board
+
+        action_probs = self.actor(obs.unsqueeze(0))
+        valid_action_probs = action_probs * valid_actions
+        dist = Categorical(action_probs)
+
+        action = dist.sample()
+        action_logprob = dist.log_prob(action)
+        
+        return [action.detach(), action_logprob.detach()]
+
+    def evaluate(self, obs, action):
+
+        action_probs = self.actor(obs)
+        dist = Categorical(action_probs)
+
+        action_logprobs = dist.log_prob(action)
+        dist_entropy = dist.entropy()
+        state_values = self.critic(obs)
+
+        return action_logprobs, state_values, dist_entropy
 
     def get_transformer(self) -> Callable:
         """

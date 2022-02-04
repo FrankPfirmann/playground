@@ -1,6 +1,6 @@
 # main.py
 num_iterations = 1000000
-episodes_per_iter = 1
+episodes_per_iter = 10
 gradient_steps_per_iter = 100
 batch_size = 16
 episodes_per_eval = 5
@@ -40,3 +40,10 @@ reward_func = 'SkynetReward' #SkynetReward, BombReward
 #models.py
 use_memory=False
 forgetfullness=0.05
+
+# PPO params
+lr_actor = 0.0003       # learning rate for actor network
+lr_critic = 0.001       # learning rate for critic network
+gamma = 0.99			# discount factor
+K_epochs = 80           # update policy for K epochs in one PPO update
+eps_clip = 0.2          # clip parameter for PPO
