@@ -175,22 +175,22 @@ def train():
 
     # initialize a PPO agent
     ppo_agent1 = PPO(state_dim, action_dim, lr_actor, lr_critic, gamma, K_epochs, eps_clip, has_continuous_action_space, action_std)
-    # ppo_agent2 = PPO(state_dim, action_dim, lr_actor, lr_critic, gamma, K_epochs, eps_clip, has_continuous_action_space, action_std)
+    ppo_agent2 = PPO(state_dim, action_dim, lr_actor, lr_critic, gamma, K_epochs, eps_clip, has_continuous_action_space, action_std)
 
     agent_ind = np.random.randint(2) 
 
     agent_list1 = [
-                TrainAgent(ppo_agent1),
+                TrainAgent(ppo_agent1, algo="ppo2"),
                 SimpleAgent(),
-                TrainAgent(ppo_agent1),
+                TrainAgent(ppo_agent2, algo="ppo2"),
                 SimpleAgent(),
                 ]
 
     agent_list2 = [
                 SimpleAgent(),
-                TrainAgent(ppo_agent1),
+                TrainAgent(ppo_agent1, algo="ppo2"),
                 SimpleAgent(),
-                TrainAgent(ppo_agent1)
+                TrainAgent(ppo_agent2, algo="ppo2")
                 ]
     
     # get indices of agents
@@ -222,6 +222,7 @@ def train():
     # printing and logging variables
     print_running_reward = 0
     print_running_episodes = 0
+    print_running_steps = []
 
     log_running_reward = 0
     log_running_episodes = 0
@@ -257,6 +258,7 @@ def train():
 
             nobs, reward, done, _ = env.step(actions)
 
+
             skynet_rwds = skynet_reward(obs, act, nobs, fifo, agent_inds, skynet_reward_log)
 
 
@@ -264,26 +266,26 @@ def train():
             agt_rwd1 = skynet_rwds[agent_inds[0]]
             agt_rwd2 = skynet_rwds[agent_inds[1]]
 
-            ppo_agent1.buffer.states.append(act[agent_inds[0]][0])
-            ppo_agent1.buffer.actions.append(act[agent_inds[0]][1])
-            ppo_agent1.buffer.logprobs.append(act[agent_inds[0]][2])
+            ppo_agent1.buffer.states.append(act[agent_inds[0]][2])
+            ppo_agent1.buffer.actions.append(act[agent_inds[0]][0])
+            ppo_agent1.buffer.logprobs.append(act[agent_inds[0]][1])
             ppo_agent1.buffer.rewards.append(agt_rwd1)
             ppo_agent1.buffer.is_terminals.append(done)
             
 
-            # ppo_agent2.buffer.states.append(act[agent_inds[1]][0])
-            # ppo_agent2.buffer.actions.append(act[agent_inds[1]][1])
-            # ppo_agent2.buffer.logprobs.append(act[agent_inds[1]][2])
-            # ppo_agent2.buffer.rewards.append(agt_rwd2)
-            # ppo_agent2.buffer.is_terminals.append(done)
+            ppo_agent2.buffer.states.append(act[agent_inds[1]][2])
+            ppo_agent2.buffer.actions.append(act[agent_inds[1]][0])
+            ppo_agent2.buffer.logprobs.append(act[agent_inds[1]][1])
+            ppo_agent2.buffer.rewards.append(agt_rwd2)
+            ppo_agent2.buffer.is_terminals.append(done)
 
             time_step +=1
-            current_ep_reward += agt_rwd1
+            current_ep_reward += (agt_rwd1 + agt_rwd2)/2
 
             # update PPO agent
             if time_step % update_timestep == 0:
                 ppo_agent1.update()
-                # ppo_agent2.update()
+                ppo_agent2.update()
 
             # log in logging file
             if time_step % log_freq == 0:
@@ -299,19 +301,20 @@ def train():
                 log_running_episodes = 0
 
             # printing average reward
-            if time_step % print_freq == 0:
-
-                
+            if time_step % print_freq == 0:         
 
                 # print average reward till last episode
                 print_avg_reward = print_running_reward / print_running_episodes
                 print_avg_reward = round(print_avg_reward, 2)
 
+                print_avg_steps = int(sum(print_running_steps)/len(print_running_steps))
+
                 print("Episode : {} \t\t Timestep : {} \t\t Average Reward : {}".format(i_episode, time_step, print_avg_reward))
-                print(f"Wins: {res}, Ties: {ties}, Avg. Reward: {print_avg_reward}, Avg. Steps: {time_step}")
+                print(f"Wins: {res}, Ties: {ties}, Avg. Reward: {print_avg_reward}, Avg. Steps: {print_avg_steps}")
 
                 print_running_reward = 0
                 print_running_episodes = 0
+                print_running_steps = []
 
                 res = np.array([0.0] * 2)
                 ties = 0
@@ -340,6 +343,8 @@ def train():
                             break
                     if k:
                         res[1] += 1
+
+                print_running_steps.append(t)
 
                 break
 

@@ -27,3 +27,8 @@ class TrainAgent(agents.BaseAgent):
             act, act_logprob, obs = self.policy(obs)
 
             return act, act_logprob, obs
+
+        elif self.algo == "ppo2":
+            act, act_logprob, obs = self.policy.act(obs)
+
+            return act, act_logprob, obs

@@ -97,22 +97,16 @@ class ForwardModel(object):
 
         def act_ex_communication(agent):
             '''Handles agent's move without communication'''
-            if agent.is_alive:
-                return agent.act(obs[agent.agent_id], action_space=action_space)
-            else:
-                return constants.Action.Stop.value
+            return agent.act(obs[agent.agent_id], action_space=action_space)
 
         def act_with_communication(agent):
             '''Handles agent's move with communication'''
-            if agent.is_alive:
-                action = agent.act(
-                    obs[agent.agent_id], action_space=action_space)
-                if type(action) == int:
-                    action = [action] + [0, 0]
-                assert (type(action) == list)
-                return action
-            else:
-                return [constants.Action.Stop.value, 0, 0]
+            action = agent.act(
+                obs[agent.agent_id], action_space=action_space)
+            if type(action) == int:
+                action = [action] + [0, 0]
+            assert (type(action) == list)
+            return action
 
         ret = []
         for agent in agents:

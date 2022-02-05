@@ -57,7 +57,7 @@ class ActorCritic(nn.Module):
 
 
         self.actor = nn.Sequential(
-                        nn.Conv2d(in_channels=13, out_channels=32, kernel_size=(3, 3), stride=(1, 1)),\
+                        nn.Conv2d(in_channels=15, out_channels=32, kernel_size=(3, 3), stride=(1, 1)),\
                         nn.MaxPool2d((2,2), padding=1, stride=2),\
                         nn.Conv2d(in_channels=32, out_channels=256, kernel_size=(3, 3), stride=(1, 1)),
                         nn.MaxPool2d((2,2),stride=2),
@@ -73,7 +73,7 @@ class ActorCritic(nn.Module):
         
         # critic
         self.critic = nn.Sequential(
-                        nn.Conv2d(in_channels=13, out_channels=32, kernel_size=(3, 3), stride=(1, 1)),\
+                        nn.Conv2d(in_channels=15, out_channels=32, kernel_size=(3, 3), stride=(1, 1)),\
                         nn.MaxPool2d((2,2), padding=1, stride=2),\
                         nn.Conv2d(in_channels=32, out_channels=256, kernel_size=(3, 3), stride=(1, 1)),
                         nn.MaxPool2d((2,2),stride=2),
