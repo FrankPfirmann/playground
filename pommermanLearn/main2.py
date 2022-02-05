@@ -266,16 +266,16 @@ def train():
             agt_rwd1 = skynet_rwds[agent_inds[0]]
             agt_rwd2 = skynet_rwds[agent_inds[1]]
 
-            ppo_agent1.buffer.states.append(act[agent_inds[0]][2])
-            ppo_agent1.buffer.actions.append(act[agent_inds[0]][0])
-            ppo_agent1.buffer.logprobs.append(act[agent_inds[0]][1])
+            ppo_agent1.buffer.states.append(act[agent_inds[0]][0])
+            ppo_agent1.buffer.actions.append(act[agent_inds[0]][1])
+            ppo_agent1.buffer.logprobs.append(act[agent_inds[0]][2])
             ppo_agent1.buffer.rewards.append(agt_rwd1)
             ppo_agent1.buffer.is_terminals.append(done)
             
 
-            ppo_agent2.buffer.states.append(act[agent_inds[1]][2])
-            ppo_agent2.buffer.actions.append(act[agent_inds[1]][0])
-            ppo_agent2.buffer.logprobs.append(act[agent_inds[1]][1])
+            ppo_agent2.buffer.states.append(act[agent_inds[1]][0])
+            ppo_agent2.buffer.actions.append(act[agent_inds[1]][1])
+            ppo_agent2.buffer.logprobs.append(act[agent_inds[1]][2])
             ppo_agent2.buffer.rewards.append(agt_rwd2)
             ppo_agent2.buffer.is_terminals.append(done)
 
