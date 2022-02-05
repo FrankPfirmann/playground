@@ -69,17 +69,18 @@ def _centralize_planes_partial(planes, pos):
     central_b_size = 2 * b_size - 1
     partial_planes = []
     board_length = len(planes[0][0])
+    start0 = max((b_size - 1) - pos[0], 0)
+    end0 = min(board_length - pos[0] + b_size - 1, central_b_size)
+    start1 = max((b_size - 1) - pos[1], 0)
+    end1 = min(board_length - pos[1] + b_size - 1, central_b_size)
     for p in planes:
         partial = np.zeros((central_b_size, central_b_size))
-
-        partial[max((b_size-1) - pos[0], 0):min(board_length - pos[0] + b_size-1, central_b_size),
-        max((b_size-1) - pos[1], 0):min(board_length - pos[1] + b_size-1, central_b_size)] = \
+        partial[start0:end0, start1:end1] = \
             p[max(pos[0] - (b_size - 1), 0):min(board_length, pos[0] + (b_size)),
             max(pos[1] - (b_size - 1), 0):min(board_length, pos[1] + (b_size))]
         partial_planes.append(partial)
     outside_board = np.zeros((central_b_size, central_b_size))
-    outside_board[max((b_size-1) - pos[0], 0):min(max((b_size-1) - pos[0], 0) + b_size, central_b_size),
-        max((b_size-1) - pos[1], 0):min(max((b_size-1) - pos[1], 0) + b_size, central_b_size)] = np.ones((b_size, b_size))
+    outside_board[start0:end0,start1:end1] = np.ones((end0-start0, end1-start1))
     partial_planes.append(outside_board)
     return partial_planes
 
