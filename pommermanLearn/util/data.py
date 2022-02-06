@@ -70,7 +70,7 @@ def centralize_view(view: np.array, position: np.array, padding: int=0):
     centralized = np.ones(tuple([2*d-1 for d in view.shape])) * padding
 
     ax, ay = position # Agent position
-    cx, cy = [int((d-1)/2) for d in centralized.shape] # Center position
+    cx, cy = calculate_center(centralized.shape)
     pw, ph = view.shape # Board width and height
 
     left  = cx   - ax
@@ -83,6 +83,38 @@ def centralize_view(view: np.array, position: np.array, padding: int=0):
 
     return centralized
     
+def decentralize_view(view: np.array, position: list, bounds: tuple):
+    """
+    Move a centralized view back to its original position
+
+    :param view: A centralized view 
+    :param position: The position in the original view
+    :param bounds: tuple containing the original view bounds in the form
+        of (width, height)
+    """
+    ax, ay = position
+    bw, bh = bounds
+    cx, cy = calculate_center(view.shape)
+
+    left  = cx   - ax
+    right = left + bw
+    up    = cy   - ay
+    down  = up   + bh
+    return view[left:right, up:down]
+
+def calculate_center(shape: tuple):
+    """
+    Calculate and return the center point of a shape.
+
+    :param shape: A tuple (width, height) of odd numbers
+    :return: A tuple (x, y) containing the center points coordinates
+    """
+    if any(d%2 == 0 for d in shape):
+        raise ValueError("width and height of shape must be odd numbers")
+
+    x, y = [int((d-1)/2) for d in shape]
+    return (x, y)
+
 def crop_view(view: np.array, view_range: int):
     """
     Crops the view rectangularly to the given view_range around the

@@ -2,7 +2,7 @@ import pytest
 import os
 import pickle
 import numpy as np
-from pommermanLearn.util.data import crop_view, merge_views, centralize_view, transform_observation
+from pommermanLearn.util.data import calculate_center, crop_view, decentralize_view, merge_views, centralize_view, transform_observation
 
 RES_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -100,6 +100,10 @@ def test_centralize_plane_padding_ones():
     actual = centralize_view(plane_decentralized, position=position, padding=1)
     assert np.array_equal(actual, plane_centralized_padding_ones)
 
+def test_decentralize_view():
+    actual = decentralize_view(plane_centralized_padding_zeros, position, plane_decentralized.shape)
+    assert np.array_equal(actual, plane_decentralized)
+
 # test_crop_view
 view_full       = np.arange(25).reshape(5,5)
 view_range_good = 1
@@ -159,3 +163,24 @@ def test_transform_observation_tf():
 def test_transform_observation_tt():
     actual = transform_observation(obs, p_obs=True, centralized=True)
     assert np.array_equal(actual, expected_tt)
+
+# calculate_center
+def test_calculate_center_rejects_even_width():
+    with pytest.raises(ValueError):
+        calculate_center((5, 4))
+
+def test_calculate_center_rejects_even_height():
+    with pytest.raises(ValueError):
+        calculate_center((4, 5))
+
+def test_calculate_center_rejects_even_width_and_height():
+    with pytest.raises(ValueError):
+        calculate_center((4, 4))
+
+def test_calculate_center_x():
+    x, _ = calculate_center((5, 7))
+    assert x == 2
+
+def test_calculate_center_y():
+    _, y = calculate_center((5, 7))
+    assert y == 3
