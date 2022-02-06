@@ -70,6 +70,10 @@ def test_merge_planes_forgetfullness_over_one():
     
 # centralize_plane
 position = [1, 2]
+position_x_bad = [0, 3]
+position_y_bad = [3, 0]
+position_xy_bad = [3, 3]
+
 plane_decentralized = np.array([
     [0, 1, 2],
     [3, 4, 5],
@@ -89,6 +93,30 @@ plane_centralized_padding_ones = np.array([
     [6, 7, 8, 1, 1],
     [1, 1, 1, 1, 1]
 ])
+
+def test_centralize_view_reject_position_x_outside_view():
+    with pytest.raises(Exception):
+        centralize_view(plane_decentralized, position=position_x_bad, padding=0)
+
+def test_centralize_view_reject_position_y_outside_view():
+    with pytest.raises(Exception):
+        centralize_view(plane_decentralized, position=position_y_bad, padding=0)
+
+def test_centralize_view_reject_position_xy_outside_view():
+    with pytest.raises(Exception):
+        centralize_view(plane_decentralized, position=position_xy_bad, padding=0)
+
+def test_centralize_view_reject_position_x_negative():
+    with pytest.raises(Exception):
+        centralize_view(plane_decentralized, position=[0, -1], padding=0)
+
+def test_centralize_view_reject_position_y_negative():
+    with pytest.raises(Exception):
+        centralize_view(plane_decentralized, position=[-1, 0], padding=0)
+
+def test_centralize_view_reject_position_xy_negative():
+    with pytest.raises(Exception):
+        centralize_view(plane_decentralized, position=[-1, -1], padding=0)
 
 def test_centralize_plane_padding_zeros():
     actual = centralize_view(plane_decentralized, position=position, padding=0)
