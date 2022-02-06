@@ -57,8 +57,7 @@ def centralize_view(view: np.array, position: np.array, padding: int=0):
     """
     Centralize the view around the given position.
 
-    :param view: This view will be centered around ``position``. Must
-        have an odd width and height.
+    :param view: This view will be centered around ``position``.
     :param position: This position in the view will be the new center
         point
     :param padding: Areas outside the view will be padded with this
@@ -66,8 +65,6 @@ def centralize_view(view: np.array, position: np.array, padding: int=0):
 
     :return: The view with ``position`` as its new center point
     """
-    if not view.shape[0]%2 and not view.shape[0]%2:
-        raise ValueError("view width and height must be odd numbers")
 
     centralized = np.ones(tuple([2*d-1 for d in view.shape])) * padding
 
