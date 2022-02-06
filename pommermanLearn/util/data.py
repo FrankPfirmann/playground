@@ -57,12 +57,14 @@ def centralize_view(view: np.array, position: np.array, padding: int=0):
     """
     Centralize the view around the given position.
 
-    :param view: This view will be centered around position. Must have
-        an odd width and height.
+    :param view: This view will be centered around ``position``. Must
+        have an odd width and height.
     :param position: This position in the view will be the new center
         point
     :param padding: Areas outside the view will be padded with this
         value
+
+    :return: The view with ``position`` as its new center point
     """
     if not view.shape[0]%2 and not view.shape[0]%2:
         raise ValueError("view width and height must be odd numbers")
@@ -89,8 +91,11 @@ def decentralize_view(view: np.array, position: list, bounds: tuple):
 
     :param view: A centralized view 
     :param position: The position in the original view
-    :param bounds: tuple containing the original view bounds in the form
-        of (width, height)
+    :param bounds: A ``tuple`` containing the original view bounds in
+        the form of (width, height).
+
+    :return: The ``view`` with the center moved to ``position`` in
+        ``bounds``.
     """
     ax, ay = position
     bw, bh = bounds
@@ -104,10 +109,11 @@ def decentralize_view(view: np.array, position: list, bounds: tuple):
 
 def calculate_center(shape: tuple):
     """
-    Calculate and return the center point of a shape.
+    Calculate and return the center point of ``shape``.
 
     :param shape: A tuple (width, height) of odd numbers
-    :return: A tuple (x, y) containing the center points coordinates
+
+    :return: A ``tuple`` (x, y) containing the center points coordinates
     """
     if any(d%2 == 0 for d in shape):
         raise ValueError("width and height of shape must be odd numbers")
@@ -117,15 +123,18 @@ def calculate_center(shape: tuple):
 
 def crop_view(view: np.array, view_range: int):
     """
-    Crops the view rectangularly to the given view_range around the
+    Crops the view rectangularly to the given ``view_range`` around the
     views center point.
     
     :param view: The view crop. Width and height must be odd numbers.
     :param view_range: The number of columns and rows left in each
         direction after cropping, counting from the center point. Must
         be greater then zero and not exceed any view bound.
+
+    :return: The given ``view``, but cropped up to ``view_range``
+        around the center
     """
-    if not view.shape[0]%2 or not view.shape[1]%2:
+    if any(d%2 == 0 for d in view.shape):
         raise ValueError("view width and height must be odd numbers")
 
     if view_range <= 0:
@@ -172,6 +181,9 @@ def merge_views(first: np.array, second: np.array, fov: np.array, forgetfullness
     :param fov: A binary numpy array respresenting the field of view
     :param forgetfullness: A value ranging from 0.0 to 1.0 that reduces
         values outside the field of view.
+
+    :return: ``first`` and ``second`` merged with ``forgetfullness``
+        applied outside of `fov`.
     """
     assert first.shape == second.shape == fov.shape, f"Shapes of planes to merge must match exactly, but first is {first.shape}, second is {second.shape} and fov is {fov.shape}"
     assert forgetfullness >= 0.0 and forgetfullness <= 1.0, "forgetfullness must be a value in the range 0.0 to 1.0"
