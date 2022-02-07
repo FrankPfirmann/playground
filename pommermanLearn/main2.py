@@ -35,13 +35,13 @@ def train():
 
     has_continuous_action_space = False  # continuous action space; else discrete
 
-    max_ep_len = 500                   # max timesteps in one episode
+    max_ep_len = 1000                   # max timesteps in one episode
     max_training_timesteps = int(3e6)   # break training loop if timeteps > max_training_timesteps
-
+    max_training_iterations = 1000
     print_freq = max_ep_len * 10        # print avg reward in the interval (in num timesteps)
     log_freq = max_ep_len * 2           # log avg reward in the interval (in num timesteps)
-    save_model_freq = int(1e5)          # save model frequency (in num timesteps)
-
+    save_model_freq = 10          # save model frequency (in num timesteps)
+    episodes_per_iter = 10
     action_std = 0.6                    # starting std for action distribution (Multivariate Normal)
     action_std_decay_rate = 0.05        # linearly decay action_std (action_std = action_std - action_std_decay_rate)
     min_action_std = 0.1                # minimum action_std (stop decay after action_std <= min_action_std)
@@ -61,7 +61,7 @@ def train():
     eps_clip = 0.2          # clip parameter for PPO
     gamma = 0.99            # discount factor
 
-    lr_actor = 0.0003       # learning rate for actor network
+    lr_actor = 0.001       # learning rate for actor network
     lr_critic = 0.001       # learning rate for critic network
 
     random_seed = 0         # set random seed if required (0 = no random seed)
@@ -177,19 +177,21 @@ def train():
     ppo_agent1 = PPO(state_dim, action_dim, lr_actor, lr_critic, gamma, K_epochs, eps_clip, has_continuous_action_space, action_std)
     ppo_agent2 = PPO(state_dim, action_dim, lr_actor, lr_critic, gamma, K_epochs, eps_clip, has_continuous_action_space, action_std)
 
+    ppo_agents = [ppo_agent1, ppo_agent2]
+    
     agent_ind = np.random.randint(2) 
 
     agent_list1 = [
                 TrainAgent(ppo_agent1, algo="ppo2"),
-                SimpleAgent(),
+                SmartRandomAgent(),
                 TrainAgent(ppo_agent2, algo="ppo2"),
-                SimpleAgent(),
+                SmartRandomAgent(),
                 ]
 
     agent_list2 = [
-                SimpleAgent(),
+                SmartRandomAgent(),
                 TrainAgent(ppo_agent1, algo="ppo2"),
-                SimpleAgent(),
+                SmartRandomAgent(),
                 TrainAgent(ppo_agent2, algo="ppo2")
                 ]
     
@@ -220,7 +222,7 @@ def train():
 
 
     # printing and logging variables
-    print_running_reward = 0
+    print_running_reward = []
     print_running_episodes = 0
     print_running_steps = []
 
@@ -240,121 +242,93 @@ def train():
         fifo[i].clear()
 
     # training loop
-    o = 0
-    while time_step <= max_training_timesteps:
+    for i in range(1, max_training_iterations):
 
+        for _ in range(episodes_per_iter):
 
-        obs = env.reset()
-        current_ep_reward = 0
+            obs = env.reset()
+            current_ep_reward = 0
 
-        for t in range(1, max_ep_len+1):
-            
-            act = env.act(obs)
-
-            actions = [act[0], act[1], act[2], act[3]]
-
-            actions[agent_inds[0]] = actions[agent_inds[0]][1].item()
-            actions[agent_inds[1]] = actions[agent_inds[1]][1].item()
-
-            nobs, reward, done, _ = env.step(actions)
-
-
-            skynet_rwds = skynet_reward(obs, act, nobs, fifo, agent_inds, skynet_reward_log)
-
-
+            for t in range(1, max_ep_len+1):
                 
-            agt_rwd1 = skynet_rwds[agent_inds[0]]
-            agt_rwd2 = skynet_rwds[agent_inds[1]]
+                act = env.act(obs)
 
-            ppo_agent1.buffer.states.append(act[agent_inds[0]][0])
-            ppo_agent1.buffer.actions.append(act[agent_inds[0]][1])
-            ppo_agent1.buffer.logprobs.append(act[agent_inds[0]][2])
-            ppo_agent1.buffer.rewards.append(agt_rwd1)
-            ppo_agent1.buffer.is_terminals.append(done)
-            
+                actions = [act[0], act[1], act[2], act[3]]
 
-            ppo_agent2.buffer.states.append(act[agent_inds[1]][0])
-            ppo_agent2.buffer.actions.append(act[agent_inds[1]][1])
-            ppo_agent2.buffer.logprobs.append(act[agent_inds[1]][2])
-            ppo_agent2.buffer.rewards.append(agt_rwd2)
-            ppo_agent2.buffer.is_terminals.append(done)
+                actions[agent_inds[0]] = actions[agent_inds[0]][1].item()
+                actions[agent_inds[1]] = actions[agent_inds[1]][1].item()
+                nobs, reward, done, _ = env.step(actions)
 
-            time_step +=1
-            current_ep_reward += (agt_rwd1 + agt_rwd2)/2
+                skynet_rwds = skynet_reward(obs, act, nobs, fifo, agent_inds, skynet_reward_log)
 
-            # update PPO agent
-            if time_step % update_timestep == 0:
-                ppo_agent1.update()
-                ppo_agent2.update()
+                obs = nobs
 
-            # log in logging file
-            if time_step % log_freq == 0:
+                for m in range(2):
 
-                # log average reward till last episode
-                log_avg_reward = log_running_reward / log_running_episodes
-                log_avg_reward = round(log_avg_reward, 4)
+                    agt_rwd = skynet_rwds[agent_inds[i]]
 
-                log_f.write('{},{},{}\n'.format(i_episode, time_step, log_avg_reward))
-                log_f.flush()
+                    ppo_agents[m].buffer.states.append(act[agent_inds[m]][0])
+                    ppo_agents[m].buffer.actions.append(act[agent_inds[m]][1])
+                    ppo_agents[m].buffer.logprobs.append(act[agent_inds[m]][2])
+                    ppo_agents[m].buffer.rewards.append(agt_rwd)
+                    ppo_agents[m].buffer.is_terminals.append(done)
 
-                log_running_reward = 0
-                log_running_episodes = 0
+                    current_ep_reward += agt_rwd
+        
 
-            # printing average reward
-            if time_step % print_freq == 0:         
+                time_step +=1
 
-                # print average reward till last episode
-                print_avg_reward = print_running_reward / print_running_episodes
-                print_avg_reward = round(print_avg_reward, 2)
 
-                print_avg_steps = int(sum(print_running_steps)/len(print_running_steps))
+                if done or t == max_ep_len:
 
-                print("Episode : {} \t\t Timestep : {} \t\t Average Reward : {}".format(i_episode, time_step, print_avg_reward))
-                print(f"Wins: {res}, Ties: {ties}, Avg. Reward: {print_avg_reward}, Avg. Steps: {print_avg_steps}")
+                    print_running_steps.append(t)
+                    print_running_reward.append(current_ep_reward)
 
-                print_running_reward = 0
-                print_running_episodes = 0
-                print_running_steps = []
+                    winner = np.where(np.array(reward) == 1)[0]
+                    if len(winner) == 0:
+                        ties += 1
+                    else:
+                        k = True
+                        for j in range(2):
+                            if agent_inds[j] in winner:
+                                res[0] += 1
+                                k = False
+                                break
+                        if k:
+                            res[1] += 1
 
-                res = np.array([0.0] * 2)
-                ties = 0
+                    break
 
-            # save model weights
-            if time_step % save_model_freq == 0:
-                print("--------------------------------------------------------------------------------------------")
-                print("saving model at : " + checkpoint_path)
-                ppo_agent1.save(checkpoint_path)
-                print("model saved")
-                print("Elapsed Time  : ", datetime.now().replace(microsecond=0) - start_time)
-                print("--------------------------------------------------------------------------------------------")
 
-            # break; if the episode is over
-            if done:
+                # update PPO agent
+                # if time_step % update_timestep == 0:
 
-                winner = np.where(np.array(reward) == 1)[0]
-                if len(winner) == 0:
-                    ties += 1
-                else:
-                    k = True
-                    for i in range(2):
-                        if agent_inds[i] in winner:
-                            res[0] += 1
-                            k = False
-                            break
-                    if k:
-                        res[1] += 1
+        ppo_agent1.update()
+        ppo_agent2.update()
 
-                print_running_steps.append(t)
+        print_avg_steps = int(sum(print_running_steps)/(len(print_running_steps) + 1))
+        print_avg_reward = sum(print_running_reward)/(len(print_running_reward) + 1)
 
-                break
+        print(f"Iteration : {i}, Wins: {res}, Ties: {ties}, Avg. Reward: {print_avg_reward}, Avg. Steps: {print_avg_steps}")
 
-        print_running_reward += current_ep_reward
-        print_running_episodes += 1
+        print_running_reward = []
+        print_running_steps = []
 
-        log_running_reward += current_ep_reward
-        log_running_episodes += 1
+        res = np.array([0.0] * 2)
+        ties = 0
 
-        i_episode += 1
+
+
+        # save model weights
+        if i % save_model_freq == 0:
+            print("--------------------------------------------------------------------------------------------")
+            print("saving model at : " + checkpoint_path)
+            ppo_agent1.save(checkpoint_path)
+            print("model saved")
+            print("Elapsed Time  : ", datetime.now().replace(microsecond=0) - start_time)
+            print("--------------------------------------------------------------------------------------------")
+
+                # break; if the episode is over
 
 
     log_f.close()

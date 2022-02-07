@@ -3,8 +3,9 @@ import torch.nn as nn
 from torch.distributions import MultivariateNormal
 from torch.distributions import Categorical
 from util.data import transform_observation_simple, transform_observation_partial, transform_observation_centralized
+from action_prune import get_filtered_actions
 
-
+import sys
 
 ################################## set device ##################################
 
@@ -99,9 +100,9 @@ class ActorCritic(nn.Module):
         raise NotImplementedError
     
 
-    def act(self, state):
+    def act(self, state, valid_actions=[]):
 
-        action_probs = self.actor(state.unsqueeze(0))
+        action_probs = self.actor(state.unsqueeze(0)) * valid_actions if len(valid_actions) > 0 else self.actor(state.unsqueeze(0))
         dist = Categorical(action_probs)
 
         action = dist.sample()
@@ -112,20 +113,9 @@ class ActorCritic(nn.Module):
 
     def evaluate(self, state, action):
 
-        if self.has_continuous_action_space:
-            action_mean = self.actor(state)
-            
-            action_var = self.action_var.expand_as(action_mean)
-            cov_mat = torch.diag_embed(action_var).to(device)
-            dist = MultivariateNormal(action_mean, cov_mat)
-            
-            # For Single Action Environments.
-            if self.action_dim == 1:
-                action = action.reshape(-1, self.action_dim)
 
-        else:
-            action_probs = self.actor(state)
-            dist = Categorical(action_probs)
+        action_probs = self.actor(state)
+        dist = Categorical(action_probs)
         action_logprobs = dist.log_prob(action)
         dist_entropy = dist.entropy()
         state_values = self.critic(state)
@@ -194,12 +184,23 @@ class PPO:
 
     def act(self, state):
 
+        # print(state['board'])
+
+        valid_actions = get_filtered_actions(state)
+        valid_actions_transformed = []
+        for i in range(6):
+            valid_actions_transformed += [1] if i in valid_actions else [0]
+        valid_actions_transformed = torch.FloatTensor(valid_actions_transformed).to(device).unsqueeze(0)
+
         state = transform_observation_partial(state)
+
+        # print("Valid action: ", valid_actions)
 
         with torch.no_grad():
             state = torch.FloatTensor(state).to(device)
-            action, action_logprob = self.policy_old.act(state)
+            action, action_logprob = self.policy_old.act(state, valid_actions_transformed)
         
+        # print("Next action: ", action.item())
 
         return state, action, action_logprob
 
