@@ -57,34 +57,53 @@ class ActorCritic(nn.Module):
 
 
 
-        self.actor = nn.Sequential(
-                        nn.Conv2d(in_channels=15, out_channels=32, kernel_size=(3, 3), stride=(1, 1)),\
-                        nn.MaxPool2d((2,2), padding=1, stride=2),\
-                        nn.Conv2d(in_channels=32, out_channels=256, kernel_size=(3, 3), stride=(1, 1)),
-                        nn.MaxPool2d((2,2),stride=2),
-                        nn.Flatten(),
-                        nn.Linear(256, 64),
-                        nn.Tanh(),
-                        nn.Linear(64, 64),
-                        nn.Tanh(),
-                        nn.Linear(64, action_dim),
-                        nn.Softmax(dim=-1)
+        # self.actor = nn.Sequential(
+        #                 nn.Conv2d(in_channels=15, out_channels=32, kernel_size=(3, 3), stride=(1, 1)),\
+        #                 nn.MaxPool2d((2,2), padding=1, stride=2),\
+        #                 nn.Conv2d(in_channels=32, out_channels=256, kernel_size=(3, 3), stride=(1, 1)),
+        #                 nn.MaxPool2d((2,2),stride=2),
+        #                 nn.Flatten(),
+        #                 nn.Linear(256, 64),
+        #                 nn.Tanh(),
+        #                 nn.Linear(64, 64),
+        #                 nn.Tanh(),
+        #                 nn.Linear(64, action_dim),
+        #                 nn.Softmax(dim=-1)
+        #             )
+
+        self.conv = nn.Sequential(
+                        nn.Conv2d(in_channels=15, out_channels=64, kernel_size=(3, 3), stride=(1, 1)),\
+                        nn.Conv2d(in_channels=64, out_channels=64, kernel_size=(3, 3), stride=(1, 1)),\
+                        nn.Conv2d(in_channels=64, out_channels=64, kernel_size=(3, 3), stride=(1, 1)),\
+                        nn.Conv2d(in_channels=64, out_channels=2, kernel_size=(1, 1), stride=(1, 1)),\
+                        nn.Flatten()
                     )
 
-        
-        # critic
+
+        self.actor = nn.Sequential(
+                        nn.Linear(18, 6),
+                        nn.Softmax(dim=-1)
+            )
+
         self.critic = nn.Sequential(
-                        nn.Conv2d(in_channels=15, out_channels=32, kernel_size=(3, 3), stride=(1, 1)),\
-                        nn.MaxPool2d((2,2), padding=1, stride=2),\
-                        nn.Conv2d(in_channels=32, out_channels=256, kernel_size=(3, 3), stride=(1, 1)),
-                        nn.MaxPool2d((2,2),stride=2),
-                        nn.Flatten(),
-                        nn.Linear(256, 64),
+                        nn.Linear(18, 1),
                         nn.Tanh(),
-                        nn.Linear(64, 64),
-                        nn.Tanh(),
-                        nn.Linear(64, 1)
-                    )
+            )
+
+        
+        # # critic
+        # self.critic = nn.Sequential(
+        #                 nn.Conv2d(in_channels=15, out_channels=32, kernel_size=(3, 3), stride=(1, 1)),\
+        #                 nn.MaxPool2d((2,2), padding=1, stride=2),\
+        #                 nn.Conv2d(in_channels=32, out_channels=256, kernel_size=(3, 3), stride=(1, 1)),
+        #                 nn.MaxPool2d((2,2),stride=2),
+        #                 nn.Flatten(),
+        #                 nn.Linear(256, 64),
+        #                 nn.Tanh(),
+        #                 nn.Linear(64, 64),
+        #                 nn.Tanh(),
+        #                 nn.Linear(64, 1)
+        #             )
         
     def set_action_std(self, new_action_std):
 
@@ -102,7 +121,12 @@ class ActorCritic(nn.Module):
 
     def act(self, state, valid_actions=[]):
 
-        action_probs = self.actor(state.unsqueeze(0)) * valid_actions if len(valid_actions) > 0 else self.actor(state.unsqueeze(0))
+        x1 = self.conv(state.unsqueeze(0))
+        x2 = self.actor(x1)
+
+        action_probs = x2 * valid_actions if len(valid_actions) > 0 else x2
+
+        # action_probs = self.actor(state.unsqueeze(0)) * valid_actions if len(valid_actions) > 0 else self.actor(state.unsqueeze(0))
         dist = Categorical(action_probs)
 
         action = dist.sample()
@@ -113,12 +137,16 @@ class ActorCritic(nn.Module):
 
     def evaluate(self, state, action):
 
+        x1 = self.conv(state)
+        action_probs = self.actor(x1)
 
-        action_probs = self.actor(state)
+        # action_probs = self.actor(state)
         dist = Categorical(action_probs)
         action_logprobs = dist.log_prob(action)
         dist_entropy = dist.entropy()
-        state_values = self.critic(state)
+
+        x2 = self.conv(state)
+        state_values = self.critic(x2)
         
         return action_logprobs, state_values, dist_entropy
 

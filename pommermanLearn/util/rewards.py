@@ -3,7 +3,7 @@ import numpy as np
 from pommerman import constants
 from pommerman.constants import Item
 from util.data import calc_dist
-
+import sys
 
 def staying_alive_reward(nobs, agent_id):
     """
@@ -97,10 +97,10 @@ def skynet_reward(obs, act, nobs, fifo, agent_inds, log):
         cur_position = nobs[i]['position']
         if n_enemies_prev - n_enemy_cur > 0:
             r[i] += (n_enemies_prev - n_enemy_cur) * 0.5
-            log[log_ind][0] += (n_enemies_prev - n_enemy_cur) * 0.5
+            log[log_ind][0] += (n_enemies_prev - n_enemy_cur) * 100
         if prev_n_teammate - cur_n_teammate > 0:
             r[i] -= (prev_n_teammate-cur_n_teammate)*0.5
-            log[log_ind][4] -= (prev_n_teammate-cur_n_teammate)*0.5
+            log[log_ind][4] -= (prev_n_teammate-cur_n_teammate)*2
         if not prev_can_kick and cur_can_kick:
             r[i] += 0.02
             log[log_ind][1] += 0.02
@@ -125,7 +125,7 @@ def _get_positions(board, value):
     return list(zip(wood_positions[0], wood_positions[1]))
 
 
-def woods_close_to_bomb_reward(obs, bomb_pos, blast_strength, agent_ids):
+def dist_to_enemy_reward(obs, agent_ind, enemy_inds):
     '''
     :param obs: observation
     :param bomb_pos: position bomb is layed
@@ -133,13 +133,41 @@ def woods_close_to_bomb_reward(obs, bomb_pos, blast_strength, agent_ids):
     :param agent_ids: agent ids of teammates
     :return: reward for laying bombs near wood and enemies
     '''
+    ag_obs = obs[agent_ind]
+    board = ag_obs['board']
+    pos = np.asarray(ag_obs['position'])
+    enemies_pos = np.asarray([obs[enemy_inds[0]]['position'], obs[enemy_inds[1]]['position']])
 
+    enemy_ids = [e.value for e in ag_obs['enemies'][:-1]]
+
+    min_dist = np.inf
+    for e in enemies_pos:
+
+        dist = np.linalg.norm(e - pos)
+        min_dist = dist if dist < min_dist else min_dist
+
+    return 0.001*(1/(min_dist + 1)**2)
+
+
+def woods_close_to_bomb_reward(obs, agent_ind):
+    '''
+    :param obs: observation
+    :param bomb_pos: position bomb is layed
+    :param blast_strength: current blast strength of the agent
+    :param agent_ids: agent ids of teammates
+    :return: reward for laying bombs near wood and enemies
+    '''
+    obs = obs[agent_ind]
     board = obs['board']
+    bomb_pos = obs['position']
+    blast_strength = obs['blast_strength']
+    
+
     wood_positions = _get_positions(board, constants.Item.Wood.value)
     rigid_positions = _get_positions(board, constants.Item.Rigid.value)
-    enemy_ids = [10,11,12,13]
-    for id in agent_ids:
-        enemy_ids.remove(id)
+    enemy_ids = [e.value for e in obs['enemies'][:-1]]
+
+
     enemy_positions =[]
     for e in enemy_ids:
         enemy_positions += _get_positions(board, e)
@@ -155,10 +183,9 @@ def woods_close_to_bomb_reward(obs, bomb_pos, blast_strength, agent_ids):
             break
         elif left_pos in enemy_positions:
             enemies_in_range +=1
-            break
         elif left_pos in wood_positions:
             woods_in_range += 1
-            break
+
     right_pos = np.asarray(bomb_pos)
     for i in range(1, blast_strength + 1):
         if right_pos[0] == len(board)-1:
@@ -168,10 +195,9 @@ def woods_close_to_bomb_reward(obs, bomb_pos, blast_strength, agent_ids):
             break
         elif right_pos in enemy_positions:
             enemies_in_range += 1
-            break
         elif right_pos in wood_positions:
             woods_in_range += 1
-            break
+
     down_pos = np.asarray(bomb_pos)
     for i in range(1, blast_strength + 1):
         if down_pos[1] == 0:
@@ -181,10 +207,9 @@ def woods_close_to_bomb_reward(obs, bomb_pos, blast_strength, agent_ids):
             break
         elif down_pos in enemy_positions:
             enemies_in_range += 1
-            break
         elif down_pos in wood_positions:
             woods_in_range += 1
-            break
+
     up_pos = np.asarray(bomb_pos)
     for i in range(1, blast_strength + 1):
         if up_pos[1] == len(board)-1:
@@ -194,10 +219,9 @@ def woods_close_to_bomb_reward(obs, bomb_pos, blast_strength, agent_ids):
             break
         elif up_pos in enemy_positions:
             enemies_in_range += 1
-            break
         elif up_pos in wood_positions:
             woods_in_range += 1
-            break
+
     # for each wood close to bomb reward 0.1
-    reward = (0.05 * woods_in_range) + (0.5 * enemies_in_range)
+    reward = (0.01 * woods_in_range) + (0.1 * enemies_in_range)
     return reward

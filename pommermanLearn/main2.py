@@ -7,17 +7,17 @@ import torch
 import numpy as np
 
 import gym
-
+import sys
 # import pybullet_envs
 
 from PPO import PPO
 from agents.static_agent import StaticAgent
 from pommerman.agents import SimpleAgent
 
-from agents.skynet_agents import SmartRandomAgent
+from agents.skynet_agents import SmartRandomAgent, SmartRandomAgentNoBomb
 from agents.train_agent import TrainAgent
 from util.data import transform_observation_simple, transform_observation_partial, transform_observation_centralized
-from util.rewards import staying_alive_reward, go_down_right_reward, bomb_reward, skynet_reward
+from util.rewards import staying_alive_reward, go_down_right_reward, bomb_reward, skynet_reward, woods_close_to_bomb_reward, dist_to_enemy_reward
 
 import pommerman
 
@@ -61,7 +61,7 @@ def train():
     eps_clip = 0.2          # clip parameter for PPO
     gamma = 0.99            # discount factor
 
-    lr_actor = 0.001       # learning rate for actor network
+    lr_actor = 0.01       # learning rate for actor network
     lr_critic = 0.001       # learning rate for critic network
 
     random_seed = 0         # set random seed if required (0 = no random seed)
@@ -180,23 +180,26 @@ def train():
     ppo_agents = [ppo_agent1, ppo_agent2]
     
     agent_ind = np.random.randint(2) 
+    agent_ind = 0
 
     agent_list1 = [
                 TrainAgent(ppo_agent1, algo="ppo2"),
-                SmartRandomAgent(),
+                SmartRandomAgentNoBomb(),
                 TrainAgent(ppo_agent2, algo="ppo2"),
-                SmartRandomAgent(),
+                SmartRandomAgentNoBomb(),
                 ]
 
     agent_list2 = [
-                SmartRandomAgent(),
+                SmartRandomAgentNoBomb(),
                 TrainAgent(ppo_agent1, algo="ppo2"),
-                SmartRandomAgent(),
+                SmartRandomAgentNoBomb(),
                 TrainAgent(ppo_agent2, algo="ppo2")
                 ]
     
     # get indices of agents
     agent_inds = [0+agent_ind, 2+agent_ind]
+    enemy_inds = [x for x in range(4) if x not in agent_inds]
+
     agent_ids = [10+agent_ind, 12+agent_ind]
 
     agent_list = agent_list1 if agent_ind == 0 else agent_list2
@@ -249,6 +252,8 @@ def train():
             obs = env.reset()
             current_ep_reward = 0
 
+            agt_rwd = 0
+
             for t in range(1, max_ep_len+1):
                 
                 act = env.act(obs)
@@ -259,13 +264,26 @@ def train():
                 actions[agent_inds[1]] = actions[agent_inds[1]][1].item()
                 nobs, reward, done, _ = env.step(actions)
 
+                if i == 10:
+                    env.render()
+
                 skynet_rwds = skynet_reward(obs, act, nobs, fifo, agent_inds, skynet_reward_log)
 
                 obs = nobs
 
                 for m in range(2):
 
-                    agt_rwd = skynet_rwds[agent_inds[i]]
+                    agt_rwd = skynet_rwds[agent_inds[m]]
+
+                    if act[agent_inds[m]][1] == 5:
+                        agt_rwd += dist_to_enemy_reward(obs, agent_inds[m], enemy_inds)
+
+                    winner = np.where(np.array(reward) == 1)[0]
+                    if done:
+                        if agent_inds[m] in winner:
+                            agt_rwd += 10
+                    # if act[agent_inds[m]][1] == 5:
+                    #     agt_rwd += woods_close_to_bomb_reward(obs, agent_inds[m])
 
                     ppo_agents[m].buffer.states.append(act[agent_inds[m]][0])
                     ppo_agents[m].buffer.actions.append(act[agent_inds[m]][1])
