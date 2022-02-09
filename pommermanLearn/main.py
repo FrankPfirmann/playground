@@ -19,6 +19,10 @@ from data_augmentation import DataAugmentor_v1
 from data_generator import DataGeneratorPommerman
 from dqn import DQN
 from models import Pommer_Q
+from models import PommerQEmbeddingMLP
+from models import PommerQEmbeddingRNN
+from embeddings import PommerLinearAutoencoder
+from embeddings import PommerConvAutoencoder
 from util.analytics import Stopwatch
 from util.data import transform_observation_simple, transform_observation_partial, transform_observation_centralized
 
@@ -28,12 +32,27 @@ def train_dqn(dqn1=None, dqn2=None, num_iterations=p.num_iterations, episodes_pe
     random.seed(p.seed)
     device = torch.device("cpu") if not torch.cuda.is_available() else torch.device("cuda")
 
+    if p.env == 'OneVsOne-v0':
+        board_size = 8
+    else:
+        board_size = 11
+    obs_size = board_size if not p.centralize_planes else board_size*2-1
     if p.p_observable:
         transform_func = transform_observation_partial
     elif p.centralize_planes:
         transform_func = transform_observation_centralized
     else:
         transform_func = transform_observation_simple
+    # LSTM model with object embeddings:
+    """
+    path="./data/models/PommerConvAutoEncoder-64-db16e0d.pth"
+    embedding_model = PommerConvAutoencoder(embedding_dims=64)
+    embedding_model.load_state_dict(torch.load(path))
+    embedding_model.eval() 
+    embedding_model.mode='encode'
+    q_target = PommerQEmbeddingRNN(embedding_model)
+    q = PommerQEmbeddingRNN(embedding_model)
+    """
 
     # initialize DQN and data generator
     if dqn1 == None:
