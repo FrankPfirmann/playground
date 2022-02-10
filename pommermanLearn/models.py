@@ -10,7 +10,7 @@ import torch.nn.functional as F
 from pommerman.constants import Item
 
 import params as p
-from pommermanLearn.util.data import calculate_center
+from util.data import calculate_center
 from util.data import centralize_view, decentralize_view
 from util.data import transform_observation, transform_observation_centralized
 from util.data import merge_views, crop_view
