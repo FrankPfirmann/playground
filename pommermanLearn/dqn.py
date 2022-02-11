@@ -100,6 +100,7 @@ class DQN(object):
             td_error = q - q_target
         loss = F.mse_loss(q_target, q)
         if p.prioritized_replay:
+            loss = F.mse_loss(q_target, q, reduction='none')
             weights = torch.tensor(weights) 
             loss = torch.mean(weights * loss)
         self.q_optim.zero_grad()

@@ -71,6 +71,9 @@ class DataGeneratorPommerman:
             self._set_priority_min(self.idxs[agent_num], priority_alpha, agent_num)
             self._set_priority_sum(self.idxs[agent_num], priority_alpha, agent_num)
 
+            # increment size of replay buffer
+            self.sizes[agent_num] = min(p.replay_size, self.sizes[agent_num] + 1)
+
         self.idxs[agent_num] = (self.idxs[agent_num] + 1) % p.replay_size
 
     def _set_priority_min(self, idx, priority_alpha, agent_num):
@@ -249,7 +252,7 @@ class DataGeneratorPommerman:
         fifo = [[] for _ in range(self.agents_n)]
         skynet_reward_log = [[0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0]]
         for i_episode in range(episodes):
-            agent_inds, agent_ids, agent_list = self._init_agent_list(agent1, agent2, policy1, policy2, enemy, True)
+            agent_inds, agent_ids, agent_list = self._init_agent_list(agent1, agent2, policy1, policy2, enemy, False)
 
             env = pommerman.make(self.env, agent_list)
             obs = env.reset()
@@ -277,6 +280,10 @@ class DataGeneratorPommerman:
                         agt_rwd = bomb_reward(nobs, act, agent_inds[i])/100
                     else:
                         agt_rwd = staying_alive_reward(nobs, agent_ids[i])
+                     # woods close to bomb reward
+                    # if act[agent_inds[i]] == Action.Bomb.value:
+                    #     agent_obs = obs[agent_inds[i]]
+                    #     agt_rwd += woods_close_to_bomb_reward(agent_obs, agent_obs['position'], agent_obs['blast_strength'], agent_ids)
                     #only living agent gets winning rewards
                     if done:
                         winner = np.where(np.array(rwd) == 1)[0] # TODO even dead agents get reward?
