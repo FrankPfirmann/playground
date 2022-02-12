@@ -55,7 +55,7 @@ class Pommer_Q(nn.Module):
             nn.ReLU()
         )
         self.combined = nn.Sequential(
-            nn.Linear(in_features=self.input_dim+6, out_features=32),
+            nn.LazyLinear(out_features=32),
             nn.ReLU(),
             nn.Linear(in_features=32, out_features=6)
         )
@@ -73,27 +73,44 @@ class Pommer_Q(nn.Module):
 
         if self.memory[1].shape != nobs[1].shape:
             return False
+        
+        if self.memory[1][0,0]+1 != nobs[1][0,0]:
+            return False
 
         return True
 
-
     def update_memory(self, nobs):
         if self.memory is None or not self.validate_memory(nobs):
-            self.memory = nobs
+            self.memory = [nobs[0], nobs[1]]
             return
 
-        # Invert fog to get field of view
-        fov = 1-nobs[0][..., 12, :, :]
+        batch_size = nobs[0].shape[0]
+        for sample in range(batch_size):
+            for layer in range(12): # Merge all layers but fog
+                if layer in [0,1]: # Remember walls and passages always
+                    forgetfulness=0.0
+                else: # Forget other layers that are out of view slowly
+                    forgetfulness=p.forgetfullness
 
-        for layer in range(12):
-            if layer in [0,1]: # Remember walls and passages always
-                forgetfulness=0.0
-            else: # Forget other layers that are out of view slowly
-                forgetfulness=p.forgetfullness
-            first = self.memory[0][..., layer, :, :]
-            second = nobs[0][..., layer, :, :]
-            merged = merge_views(first, second, fov, forgetfullness=forgetfulness)
-            nobs[0][..., layer, :, :] = merged
+                # Invert fog to get field of view
+
+                current_position = [nobs[1][0,1], nobs[1][0,2]]
+                last_position= [self.memory[1][0,1], self.memory[1][0,2]]
+                first    = self.memory[0][sample, layer, :, :]
+                second   = nobs[0][sample, layer, :, :]
+                fog      = nobs[0][sample, -1, :, :]
+                fov      = 1 - fog
+
+                first    = decentralize_view(first,  last_position, (11,11))
+                second   = decentralize_view(second, current_position, (11,11))
+                fov      = decentralize_view(fov,    current_position, (11,11))
+
+                merged = merge_views(first, second, fov, forgetfullness=forgetfulness)
+
+                # Recentralize and safe into memory
+                merged = centralize_view(merged, current_position, 0)
+                merged = torch.tensor(merged, device=p.device)
+                nobs[0][sample, layer, :, :] = merged
 
         self.memory = nobs
 
@@ -104,9 +121,7 @@ class Pommer_Q(nn.Module):
         return dim*dim*self.last_cnn_depth
 
     def forward(self, obs):
-        if self.use_memory and self.p_obs:
-            # Memory in this form only makes sense with partial
-            # observability
+        if self.use_memory:
             self.update_memory(obs)
             obs = self.memory
 

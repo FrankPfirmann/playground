@@ -1,7 +1,8 @@
 import numpy as np
 from pommerman.constants import Item
+import torch
 
-def transform_observation(obs: dict, p_obs: bool=False, centralized: bool=False):
+def transform_observation(obs: dict, p_obs: bool=False, centralized: bool=False, crop_fog: bool=True):
     """
     Transform a singular observation of the board into a stack of
     binary planes.
@@ -44,7 +45,7 @@ def transform_observation(obs: dict, p_obs: bool=False, centralized: bool=False)
         if centralized or p_obs:
             padding = 1 if view is views[-1] else 0
             view = centralize_view(view, obs['position'], padding=padding) 
-        if p_obs:
+        if p_obs and crop_fog:
             view = crop_view(view, view_range=4)
 
         transformed.append(view)
@@ -78,7 +79,7 @@ def centralize_view(view: np.array, position: np.array, padding: int=0):
     down  = up   + ph
 
     # Copy the small plane in the center of the big centralized plane 
-    centralized[left:right, up:down] = view
+    centralized[int(left):int(right), int(up):int(down)] = view
 
     return centralized
     
@@ -102,7 +103,7 @@ def decentralize_view(view: np.array, position: list, bounds: tuple):
     right = left + bw
     up    = cy   - ay
     down  = up   + bh
-    return view[left:right, up:down]
+    return view[int(left):int(right), int(up):int(down)]
 
 def calculate_center(shape: tuple):
     """
@@ -115,7 +116,7 @@ def calculate_center(shape: tuple):
     if any(d%2 == 0 for d in shape):
         raise ValueError("width and height of shape must be odd numbers")
 
-    x, y = [int((d-1)/2) for d in shape]
+    x, y = [int((d-1)/2) for d in shape[-2:]]
     return (x, y)
 
 def crop_view(view: np.array, view_range: int):
@@ -156,6 +157,9 @@ def transform_observation_partial(obs):
 
 def transform_observation_simple(obs):
     return transform_observation(obs)
+
+def transform_observation_partial_uncropped(obs):
+    return transform_observation(obs, p_obs=True, centralized=True, crop_fog=False)
 
 def calc_dist(agent_ind, nobs, teammate_ind=-1):
     other_inds = [i for i in range(0, len(nobs))]

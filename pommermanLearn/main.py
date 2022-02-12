@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # solve error #15
-import os    
+import os
+
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
 import argparse
@@ -24,7 +25,7 @@ from models import PommerQEmbeddingRNN
 from embeddings import PommerLinearAutoencoder
 from embeddings import PommerConvAutoencoder
 from util.analytics import Stopwatch
-from util.data import transform_observation_simple, transform_observation_partial, transform_observation_centralized
+from util.data import transform_observation_simple, transform_observation_partial, transform_observation_centralized, transform_observation_partial_uncropped
 
 def train_dqn(dqn1=None, dqn2=None, num_iterations=p.num_iterations, episodes_per_iter=p.episodes_per_iter, augmentors=[], enemy='static:0', max_steps=p.max_steps) :
     torch.manual_seed(p.seed)
@@ -37,8 +38,10 @@ def train_dqn(dqn1=None, dqn2=None, num_iterations=p.num_iterations, episodes_pe
     else:
         board_size = 11
     obs_size = board_size if not p.centralize_planes else board_size*2-1
-    if p.p_observable:
+    if p.p_observable and not p.use_memory:
         transform_func = transform_observation_partial
+    elif p.p_observable and p.use_memory and not p.crop_fog:
+        transform_func = transform_observation_partial_uncropped
     elif p.centralize_planes:
         transform_func = transform_observation_centralized
     else:
@@ -201,6 +204,7 @@ def main(args):
     args=parser.parse_args(args[1:])
     setup_logger(log_level=logging.getLevelName(args.loglevel))
 
+    p.validate()
     p.num_iterations=args.iterations
 
     train_dqn(num_iterations=2000, enemy='smart_random', augmentors=[])

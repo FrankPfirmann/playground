@@ -1,3 +1,5 @@
+import torch
+
 # main.py
 num_iterations = 1000000
 episodes_per_iter = 1
@@ -10,10 +12,12 @@ render_tests = False
 env = 'PommeTeamCompetition-v0'  # PommeFFACompetition-v0 or OneVsOne-v0 or PommeTeamCompetition-v0
 episode_backward = False
 p_observable = True
+crop_fog=True
 backplay = False
 double_q = True
 prioritized_replay = False
 beta = 0 # determines how replays should be weighted (beta==0 --> all weights are 1, beta==1 --> influence of replays is fully normalized)
+device = torch.device("cpu") if not torch.cuda.is_available() else torch.device("cuda")
 
 #dqn.py
 seed = 1
@@ -40,3 +44,6 @@ reward_func = 'SkynetReward' #SkynetReward, BombReward
 #models.py
 use_memory=False
 forgetfullness=0.05
+
+def validate():
+    if use_memory: assert p_observable and not crop_fog
