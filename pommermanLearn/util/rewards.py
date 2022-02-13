@@ -43,7 +43,7 @@ def go_down_right_reward(nobs, high_pos, agent_num, act):
         return 1 + bomb_bonus, (high_pos[0], nobs[agent_num]['position'][1])
     else:
         return 0 + bomb_bonus, high_pos
-
+        
         
 def bomb_reward(nobs, act, agent_ind):
     dist = calc_dist(agent_ind, nobs)
@@ -198,28 +198,6 @@ def woods_close_to_bomb_reward(obs, bomb_pos, blast_strength, agent_ids):
         elif up_pos in wood_positions:
             woods_in_range += 1
             break
-    # for each wood close to bomb reward 0.1
-    reward = (0.002 * woods_in_range) + (0.005 * enemies_in_range)
+    # for each wood close to bomb reward x
+    reward = (0.01 * woods_in_range) + (0.3 * enemies_in_range)
     return reward
-
-def dist_to_enemy_reward(obs, agent_ind, enemy_inds):
-    '''
-    :param obs: observation
-    :param agent_ind: index of agent
-    :param enemy_inds: indices of enemies
-    :return: reward for laying bombs near enemies
-    '''
-    ag_obs = obs[agent_ind]
-    board = ag_obs['board']
-    pos = np.asarray(ag_obs['position'])
-    enemies_pos = np.asarray([obs[enemy_inds[0]]['position'], obs[enemy_inds[1]]['position']])
-
-    enemy_ids = [e.value for e in ag_obs['enemies'][:-1]]
-
-    min_dist = np.inf
-    for e in enemies_pos:
-
-        dist = np.linalg.norm(e - pos)
-        min_dist = dist if dist < min_dist else min_dist
-
-    return 0.001*(1/(min_dist + 1)**2)

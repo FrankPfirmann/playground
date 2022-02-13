@@ -11,7 +11,9 @@ class DockerAgent(DockerAgentRunner):
     An agent that exposes a REST API for usage in a docker container.
     """
     def __init__(self):
-        model_dir="./data/models/399_1_no_augment"
+        #model_dir="./data/models/20220210T204437-149_1" # Agent 1
+        model_dir="./data/models/20220210T204437-149_2" # Agent 2
+
         #device = torch.device("cpu") if not torch.cuda.is_available() else torch.device("cuda")
         device = "cpu" if not torch.cuda.is_available() else "cuda"
 
@@ -21,7 +23,7 @@ class DockerAgent(DockerAgentRunner):
         q_target = Pommer_Q(True, transform_observation_partial)
         q_target.load_state_dict(torch.load(model_dir, map_location=device))
         q_target.to(torch.device(device))
-        dqn = DQN(q, q_target, p.exploration_noise, device=torch.device(device), is_train=False)
+        dqn = DQN(q, q_target, p.exploration_noise, device=torch.device(device), is_train=True)
 
         self._agent=TrainAgent(policy=dqn.get_policy())
 

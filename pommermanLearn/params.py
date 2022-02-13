@@ -1,10 +1,10 @@
 # main.py
-num_iterations = 1000000
+num_iterations = 1000
 episodes_per_iter = 1
 gradient_steps_per_iter = 100
-batch_size = 16
-episodes_per_eval = 5
-intermediate_test = 50
+batch_size = 128
+episodes_per_eval = 30
+intermediate_test = 100
 centralize_planes = True
 render_tests = False
 env = 'PommeTeamCompetition-v0'  # PommeFFACompetition-v0 or OneVsOne-v0 or PommeTeamCompetition-v0
@@ -12,7 +12,7 @@ episode_backward = False
 p_observable = True
 backplay = False
 double_q = True
-prioritized_replay = False
+prioritized_replay = True
 beta = 0 # determines how replays should be weighted (beta==0 --> all weights are 1, beta==1 --> influence of replays is fully normalized)
 
 #dqn.py
