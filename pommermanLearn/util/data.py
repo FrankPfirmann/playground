@@ -194,3 +194,27 @@ def merge_views(first: np.array, second: np.array, fov: np.array, forgetfullness
 
     merged = second*fov + first*fog*remembrance
     return merged
+
+def merge_views_counting(first: np.array, second: np.array, fov: np.array):
+    """
+    Merge ``first`` and ``second`` by counting the number of steps that
+    elements have not been updated.
+
+    :param first: A numpy array respresenting the first view
+    :param second: A numpy array respresenting the second view
+    :param fov: A binary numpy array respresenting the field of view
+        values outside the field of view.
+
+    :return: ``first`` and ``second`` merged by incrementing everything
+        inside the fog and copying everything inside the fov.
+    """
+    assert first.shape == second.shape == fov.shape, f"Shapes of planes to merge must match exactly, but first is {first.shape}, second is {second.shape} and fov is {fov.shape}"
+
+    fog = 1-fov
+
+    mask = first != 0 
+    inc = 1-fov
+    inc[mask == False] = 0
+
+    merged = second * fov + (first + inc)*fog
+    return merged

@@ -10,6 +10,7 @@ import torch.nn.functional as F
 from pommerman.constants import Item
 
 import params as p
+from util.data import merge_views_counting
 from util.data import calculate_center
 from util.data import centralize_view, decentralize_view
 from util.data import transform_observation, transform_observation_centralized
@@ -105,7 +106,13 @@ class Pommer_Q(nn.Module):
                 second   = decentralize_view(second, current_position, (11,11))
                 fov      = decentralize_view(fov,    current_position, (11,11))
 
-                merged = merge_views(first, second, fov, forgetfullness=forgetfulness)
+                if p.memory_method == 'forgetting':
+                    merged = merge_views_counting(first, second, fov)
+                if p.memory_method == 'counting':
+                    merged = merge_views(first, second, fov, forgetfullness=forgetfulness)
+
+                if sample==0 and layer==2:
+                    print(merged)
 
                 # Recentralize and safe into memory
                 merged = centralize_view(merged, current_position, 0)

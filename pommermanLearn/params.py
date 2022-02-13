@@ -43,6 +43,7 @@ reward_func = 'SkynetReward' #SkynetReward, BombReward
 
 #models.py
 use_memory=False
+memory_method = 'forgetting' # one of 'counting', 'forgetting'
 forgetfullness=0.05
 
 def validate():
