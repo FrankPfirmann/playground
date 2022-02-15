@@ -50,7 +50,7 @@ class DataGeneratorPommerman:
             self.max_priorities = [1.0, 1.0]
             self.sizes = [0, 0]
 
-        self.agents_n = 2 if self.env == 'OneVsOne-v0' or self.env.startswith("custom") else 4
+        self.agents_n = 2 if self.env == 'OneVsOne-v0' else 4
         self.player_agents_n = int(self.agents_n/2)
         self.buffers = [[] for _ in range(self.player_agents_n)]
         self.idxs = [0, 0]
@@ -215,7 +215,7 @@ class DataGeneratorPommerman:
             elif agent_str == 'cautious':
                 agent_list[i] = CautiousAgent()
             else:
-                print('unsupported opponent type!')
+                logging.error('unsupported opponent type!')
                 sys.exit(1)
         if self.agents_n == 2:
             agent_inds = [0 + agent_ind]

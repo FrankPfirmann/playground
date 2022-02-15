@@ -1,3 +1,4 @@
+from heapq import merge
 import logging
 from typing import Callable
 
@@ -9,8 +10,11 @@ import torch.nn.functional as F
 from pommerman.constants import Item
 
 import params as p
+from util.data import merge_views_counting
+from util.data import calculate_center
+from util.data import centralize_view, decentralize_view
 from util.data import transform_observation, transform_observation_centralized
-from util.data import merge_views
+from util.data import merge_views, crop_view
 ## takes in a module and applies the specified weight initialization
 
 
@@ -52,7 +56,7 @@ class Pommer_Q(nn.Module):
             nn.ReLU()
         )
         self.combined = nn.Sequential(
-            nn.Linear(in_features=self.input_dim+6, out_features=32),
+            nn.LazyLinear(out_features=32),
             nn.ReLU(),
             nn.Linear(in_features=32, out_features=6)
         )
@@ -70,27 +74,50 @@ class Pommer_Q(nn.Module):
 
         if self.memory[1].shape != nobs[1].shape:
             return False
+        
+        if self.memory[1][0,0]+1 != nobs[1][0,0]:
+            return False
 
         return True
 
-
     def update_memory(self, nobs):
         if self.memory is None or not self.validate_memory(nobs):
-            self.memory = nobs
+            self.memory = [nobs[0], nobs[1]]
             return
 
-        # Invert fog to get field of view
-        fov = 1-nobs[0][..., 12, :, :]
+        batch_size = nobs[0].shape[0]
+        for sample in range(batch_size):
+            for layer in range(12): # Merge all layers but fog
+                if layer in [0,1]: # Remember walls and passages always
+                    forgetfulness=0.0
+                else: # Forget other layers that are out of view slowly
+                    forgetfulness=p.forgetfullness
 
-        for layer in range(12):
-            if layer in [0,1]: # Remember walls and passages always
-                forgetfulness=0.0
-            else: # Forget other layers that are out of view slowly
-                forgetfulness=p.forgetfullness
-            first = self.memory[0][..., layer, :, :]
-            second = nobs[0][..., layer, :, :]
-            merged = merge_views(first, second, fov, forgetfullness=forgetfulness)
-            nobs[0][..., layer, :, :] = merged
+                # Invert fog to get field of view
+
+                current_position = [nobs[1][0,1], nobs[1][0,2]]
+                last_position= [self.memory[1][0,1], self.memory[1][0,2]]
+                first    = self.memory[0][sample, layer, :, :]
+                second   = nobs[0][sample, layer, :, :]
+                fog      = nobs[0][sample, -1, :, :]
+                fov      = 1 - fog
+
+                first    = decentralize_view(first,  last_position, (11,11))
+                second   = decentralize_view(second, current_position, (11,11))
+                fov      = decentralize_view(fov,    current_position, (11,11))
+
+                if p.memory_method == 'forgetting':
+                    merged = merge_views_counting(first, second, fov)
+                if p.memory_method == 'counting':
+                    merged = merge_views(first, second, fov, forgetfullness=forgetfulness)
+
+                if sample==0 and layer==2:
+                    print(merged)
+
+                # Recentralize and safe into memory
+                merged = centralize_view(merged, current_position, 0)
+                merged = torch.tensor(merged, device=p.device)
+                nobs[0][sample, layer, :, :] = merged
 
         self.memory = nobs
 
@@ -101,9 +128,7 @@ class Pommer_Q(nn.Module):
         return dim*dim*self.last_cnn_depth
 
     def forward(self, obs):
-        if self.use_memory and self.p_obs:
-            # Memory in this form only makes sense with partial
-            # observability
+        if self.use_memory:
             self.update_memory(obs)
             obs = self.memory
 
@@ -248,3 +273,64 @@ class PommerQEmbeddingRNN(nn.Module):
             ]
 
         return transformer
+
+class BoardTracker:
+    def __init__(self, bounds: tuple):
+        self.bounds = bounds
+        self.reset()
+
+    def update(self, view: np.array, position: list) -> None:
+        """
+        Updates the global state with the centralized and cropped ``view``
+
+        :param view: A cropped and centralized view of the board
+        :param position: The position of the views center in the global
+            coordinate system.
+        """
+        assert view.shape[0] == view.shape[1]
+
+        pad_width = int((self.bounds[0]*2-1-1)/2 - (view.shape[0]-1)/2)
+        fov = np.pad(np.ones(view.shape), pad_width, constant_values=0)
+        view = np.pad(view, pad_width, constant_values=0)
+
+        # Decentralize view
+        fov = decentralize_view(fov, position, bounds=self.bounds)
+        view = decentralize_view(view, position, bounds=self.bounds)
+
+        # Merge views
+        # TODO: Add option for merge with forgetfullness or externalize merging
+        #self.merged = merge_views(self.merged, view, fov, forgetfullness=0.5)
+        fog = 1-fov
+        self.board = view*fov + self.board*fog+np.where(self.board != fov, fog, fov)*fog
+
+    def get_view(self, position: list=None, view_range: int=0, centralized=False) -> np.array:
+        """
+        Return a view of the internal global board state
+
+        :param position: The position where the view center should lie
+        :param view_range: The amount of tiles left in each direction.
+            Everything outside will be cropped out if the value is
+            greater then zero.   
+        :param centralized: Center the returned view if True, overwise
+            return an uncentered board.
+
+        :return: The resulting view
+        """
+        if position is None:
+            position = calculate_center(self.board.shape)
+
+        view = centralize_view(self.board, position, 0)
+        if view_range > 0:
+            view = crop_view(view, view_range)
+        
+        if centralized:
+            return view
+        else:
+            # TODO: Add unit tests
+            return decentralize_view(view, position, self.bounds)
+    
+    def reset(self) -> None:
+        """
+        Reset the internal representation to its initial state
+        """
+        self.board = np.zeros(self.bounds) 
