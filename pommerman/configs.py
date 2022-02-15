@@ -272,6 +272,29 @@ def radio_competition_env():
     agent = characters.Bomber
     return locals()
 
+def custom_env():
+    """Start up a team radio config with the default settings."""
+    env = envs.v2.Pomme
+    game_type = constants.GameType.TeamRadio
+    env_entry_point = 'pommerman.envs.v2:Pomme'
+    env_id = 'custom-v2'
+    env_kwargs = {
+        'game_type': game_type,
+        'board_size': 9,
+        'num_rigid': -1,
+        'num_wood': -1,
+        'num_items': -1,
+        'max_steps': constants.MAX_STEPS,
+        'render_fps': constants.RENDER_FPS,
+        'agent_view_size': constants.AGENT_VIEW_SIZE,
+        'is_partially_observable': True,
+        'env': env_entry_point,
+        'radio_vocab_size': constants.RADIO_VOCAB_SIZE,
+        'radio_num_words': constants.RADIO_NUM_WORDS,
+    }
+    agent = characters.Bomber
+    return locals()
+
 
 def save_config(config, logdir=None):
     """Save a new configuration by name.
