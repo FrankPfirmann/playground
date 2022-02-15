@@ -24,7 +24,7 @@ from models import PommerQEmbeddingRNN
 from embeddings import PommerLinearAutoencoder
 from embeddings import PommerConvAutoencoder
 from util.analytics import Stopwatch
-from util.data import transform_observation_simple, transform_observation_partial, transform_observation_centralized
+from util.data import transform_observation_simple, transform_observation_partial, transform_observation_centralized, transform_observation_partial_uncropped
 
 
 def set_all_seeds():
@@ -49,9 +49,11 @@ def train_dqn(dqn1=None, dqn2=None, num_iterations=p.num_iterations, episodes_pe
         board_size = 8
     else:
         board_size = 11
-    obs_size = board_size if not p.centralize_planes else board_size * 2 - 1
-    if p.p_observable:
+    obs_size = board_size if not p.centralize_planes else board_size*2-1
+    if p.p_observable and not p.use_memory:
         transform_func = transform_observation_partial
+    elif p.p_observable and p.use_memory and not p.crop_fog:
+        transform_func = transform_observation_partial_uncropped
     elif p.centralize_planes:
         transform_func = transform_observation_centralized
     else:
@@ -237,8 +239,13 @@ def main(args):
     if p.seed != -1:
         set_all_seeds()
     do_mean_run(3, 15)
+    p.validate()
+    p.num_iterations=args.iterations
+
+    train_dqn(num_iterations=2000, enemy='smart_random', augmentors=[])
     p.gradient_steps_per_iter = 200
     p.batch_size = 32
+    train_dqn(num_iterations=2000, enemy='smart_random', augmentors=[DataAugmentor_v1()])
 
     # dqn1, dqn2 = train_dqn(dqn1=dqn1, dqn2=dqn2, num_iterations=10000, enemy='smart_random_no_bomb', augmentors=[])
 
