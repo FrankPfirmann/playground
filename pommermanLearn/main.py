@@ -97,8 +97,6 @@ def train_dqn(dqn1=None, dqn2=None, num_iterations=p.num_iterations, episodes_pe
         log_dir = os.path.join("./data/tensorboard/", run_name)
         logging.info(f"Staring run {run_name}")
         writer = SummaryWriter(log_dir=log_dir)
-    backsize = 1
-    backplay_interval = max(1, int(np.floor(p.num_iterations / 1000)))
     explo = p.exploration_noise
     # training loop
 
@@ -124,31 +122,15 @@ def train_dqn(dqn1=None, dqn2=None, num_iterations=p.num_iterations, episodes_pe
         # fit models on generated data
         total_loss = 0
         gradient_step_stopwatch = Stopwatch(start=True)
-        # increase backplay range (stop at
-        if p.backplay:
-            if (i + 1) % backplay_interval == 0:
-                backsize += 1
         for _ in range(p.gradient_steps_per_iter):
-            if p.backplay:
-                batch_s = min(len(data_generator.episode_buffer) * backsize, p.batch_size)
-                batch1 = data_generator.get_batch_buffer_back(batch_s, backsize)
-            elif p.episode_backward:
-                batch1 = data_generator.get_episode_buffer()
-            else:
-                batch1 = data_generator.get_batch_buffer(p.batch_size, 0)
+            batch1 = data_generator.get_batch_buffer(p.batch_size, 0)
             loss, indexes, td_error = dqn1.train(batch1)
             if p.prioritized_replay:
                 data_generator.update_priorities(indexes, td_error, 0)
             total_loss += loss
 
         for _ in range(p.gradient_steps_per_iter):
-            if p.backplay:
-                batch_s = min(len(data_generator.episode_buffer) * backsize, p.batch_size)
-                batch2 = data_generator.get_batch_buffer_back(batch_s, backsize)
-            elif p.episode_backward:
-                batch2 = data_generator.get_episode_buffer()
-            else:
-                batch2 = data_generator.get_batch_buffer(p.batch_size, 1)
+            batch2 = data_generator.get_batch_buffer(p.batch_size, 1)
             loss, indexes, td_error = dqn2.train(batch2)
             if p.prioritized_replay:
                 data_generator.update_priorities(indexes, td_error, 1)

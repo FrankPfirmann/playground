@@ -154,25 +154,6 @@ class DataGeneratorPommerman:
             priority_alpha = priority ** self.alpha
             self._set_priority_min(idx, priority_alpha, agent_num)
             self._set_priority_sum(idx, priority_alpha, agent_num)
-        
-
-    def get_batch_buffer_back(self, size, j):
-        sample_pool = []
-        for b in self.episode_buffer:
-            sample_pool.extend(b[-j:])
-        batch = list(zip(*random.sample(sample_pool, size)))
-        return np.array(batch[0]), np.array(batch[1]), np.array(batch[2]), np.array(batch[3]), np.array(batch[4])
-
-    def add_to_episode_buffer(self, i, obs, act, rwd, nobs, done):
-        if len(self.buffer) < p.replay_size:
-            self.buffers[i].append([obs, act, [rwd], nobs, [done]])
-        else:
-            self.buffers[i][self.idx] = [obs, act, [rwd], nobs, [done]]
-        self.idx = (self.idx + 1) % p.replay_size
-
-    def get_episode_buffer(self):
-        batch = list(zip(*random.sample(self.episode_buffer, 1)[0]))
-        return np.array(batch[0]), np.array(batch[1]), np.array(batch[2]), np.array(batch[3]), np.array(batch[4])
 
     def _init_agent_list(self, agent1, agent2, policy1, policy2, enemy, setposition=False):
         '''
@@ -249,8 +230,7 @@ class DataGeneratorPommerman:
         fifo = [[] for _ in range(self.agents_n)]
         skynet_reward_log = [[0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0]]
         for i_episode in range(episodes):
-            agent_inds, agent_ids, agent_list = self._init_agent_list(agent1, agent2, policy1, policy2, enemy, True)
-
+            agent_inds, agent_ids, agent_list = self._init_agent_list(agent1, agent2, policy1, policy2, enemy, False)
             env = pommerman.make(self.env, agent_list)
             obs = env.reset()
             done = False
@@ -306,26 +286,13 @@ class DataGeneratorPommerman:
 
                         # Add everything to the buffer
                         for t in transitions:
-                            if p.backplay:
-                                self.add_to_episode_buffer(i, *t)
-                            if not p.episode_backward:
-                                self.add_to_buffer(*t, i)
-                            else:
-                                self.add_to_episode_buffer(i, *t)
+                            self.add_to_buffer(*t, i)
 
                     if alive[i]:
                         ep_rwd += agt_rwd
                     alive[i] = agent_ids[i] in nobs[agent_inds[i]]['alive']
                 obs = nobs
                 steps_n += 1
-            #add to episode buffer
-            if p.episode_backward or p.backplay:
-                for i in range(len(self.buffers)):
-                    self.episode_buffer.append(self.buffers[i])
-                    if self.episode_buffer_length + len(self.buffers[i]) > p.replay_size:
-                        self.episode_buffer.pop(0)
-                    self.episode_buffer_length += len(self.buffers[i])
-                    self.buffers[i] = []
             avg_rwd += ep_rwd
             avg_steps += steps_n
             winner = np.where(np.array(rwd) == 1)[0]
