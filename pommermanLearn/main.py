@@ -2,7 +2,6 @@
 # solve error #15
 import os
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
-
 import argparse
 import logging
 import random
@@ -75,14 +74,14 @@ def train_dqn(dqn1=None, dqn2=None, num_iterations=p.num_iterations, episodes_pe
         q_target1 = Pommer_Q(p.p_observable or p.centralize_planes, transform_func)
         q1.to(device)
         q_target1.to(device)
-        dqn1 = DQN(q1, q_target1, p.exploration_noise)
+        dqn1 = DQN(q1, q_target1, p.exploration_noise, dq=p.double_q)
 
     if dqn2 == None:
         q2 = Pommer_Q(p.p_observable, transform_func)
         q_target2 = Pommer_Q(p.p_observable, transform_func)
         q2.to(device)
         q_target2.to(device)
-        dqn2 = DQN(q2, q_target2, p.exploration_noise)
+        dqn2 = DQN(q2, q_target2, p.exploration_noise, dq=p.double_q)
 
     data_generator = DataGeneratorPommerman(
         p.env,
@@ -97,8 +96,6 @@ def train_dqn(dqn1=None, dqn2=None, num_iterations=p.num_iterations, episodes_pe
         log_dir = os.path.join("./data/tensorboard/", run_name)
         logging.info(f"Staring run {run_name}")
         writer = SummaryWriter(log_dir=log_dir)
-    backsize = 1
-    backplay_interval = max(1, int(np.floor(p.num_iterations / 1000)))
     explo = p.exploration_noise
     # training loop
 
@@ -125,30 +122,15 @@ def train_dqn(dqn1=None, dqn2=None, num_iterations=p.num_iterations, episodes_pe
         total_loss = 0
         gradient_step_stopwatch = Stopwatch(start=True)
         # increase backplay range (stop at
-        if p.backplay:
-            if (i + 1) % backplay_interval == 0:
-                backsize += 1
         for _ in range(p.gradient_steps_per_iter):
-            if p.backplay:
-                batch_s = min(len(data_generator.episode_buffer) * backsize, p.batch_size)
-                batch1 = data_generator.get_batch_buffer_back(batch_s, backsize)
-            elif p.episode_backward:
-                batch1 = data_generator.get_episode_buffer()
-            else:
-                batch1 = data_generator.get_batch_buffer(p.batch_size, 0)
+            batch1 = data_generator.get_batch_buffer(p.batch_size, 0)
             loss, indexes, td_error = dqn1.train(batch1)
             if p.prioritized_replay:
                 data_generator.update_priorities(indexes, td_error, 0)
             total_loss += loss
 
         for _ in range(p.gradient_steps_per_iter):
-            if p.backplay:
-                batch_s = min(len(data_generator.episode_buffer) * backsize, p.batch_size)
-                batch2 = data_generator.get_batch_buffer_back(batch_s, backsize)
-            elif p.episode_backward:
-                batch2 = data_generator.get_episode_buffer()
-            else:
-                batch2 = data_generator.get_batch_buffer(p.batch_size, 1)
+            batch2 = data_generator.get_batch_buffer(p.batch_size, 1)
             loss, indexes, td_error = dqn2.train(batch2)
             if p.prioritized_replay:
                 data_generator.update_priorities(indexes, td_error, 1)
@@ -225,7 +207,6 @@ def setup_logger(log_level=logging.INFO):
 
 
 def main(args):
-    os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
     parser = argparse.ArgumentParser(description='Pommerman agent training script')
     parser.add_argument('-l', '--loglevel', type=str, dest="loglevel", default="INFO",
                         help=f"Minimum loglevel to display. One of {[name for name in logging._nameToLevel]}")
@@ -238,7 +219,7 @@ def main(args):
     p.num_iterations = args.iterations
     if p.seed != -1:
         set_all_seeds()
-    do_mean_run(3, 15)
+    do_mean_run(1, 100)
     p.validate()
     p.num_iterations=args.iterations
 

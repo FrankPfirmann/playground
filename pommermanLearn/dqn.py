@@ -108,30 +108,6 @@ class DQN(object):
         self.q_optim.step()
         return loss.item(), td_error
 
-    def update_q_backward(self, obs, act, rwd, nobs, done, q_t, y):
-        obs_batch = [torch.FloatTensor(obs).to(self.device) for obs in list(zip(*obs))]
-        #diffusion factor
-        beta = 0.9
-        for k in range(len(nobs)-1, 0, -1):
-            q_t[k-1][act[k]] = beta * y[k] + (1 - beta) * q_t[k-1][act[k]]
-            y[k-1] = rwd[k-1] + p.gamma * np.max(q_t[k-1])
-
-        act_batch = torch.FloatTensor(act).to(self.device)
-        y = torch.FloatTensor(y).to(self.device)
-        q = self.q_network(obs_batch).squeeze()
-        q = q.gather(1, act_batch.long().unsqueeze(1)).squeeze()
-        loss = F.mse_loss(q, y)
-        self.q_optim.zero_grad()
-        loss.backward()
-        self.q_optim.step()
-        return loss.item()
-
-
-    def _init_target_table(self, nobs_batch):
-        with torch.no_grad():
-            nobs_batch = [torch.FloatTensor(nobs).to(self.device) for nobs in list(zip(*nobs_batch))]
-            q_t = self.q_target_network(nobs_batch).squeeze().detach().numpy()
-            return q_t
 
     def train(self, batch):
         if p.prioritized_replay:
@@ -140,21 +116,14 @@ class DQN(object):
             obs_batch, act_batch, rwd_batch, nobs_batch, done_batch = batch
             weights = None
             indexes = None
-        if p.episode_backward:
-            T = len(obs_batch)
-            q_t = self._init_target_table(nobs_batch)
-            y = np.zeros(T)
-            y[-1] = rwd_batch[-1]
-            loss = self.update_q_backward(obs_batch, act_batch, rwd_batch, nobs_batch, done_batch, q_t, y)
-        else:
-            obs_batch = [np.array(obs) for obs in list(zip(*obs_batch))]
-            obs_batch = [torch.FloatTensor(obs).to(self.device) for obs in obs_batch]
-            act_batch = torch.FloatTensor(act_batch).to(self.device)
-            rwd_batch = torch.FloatTensor(rwd_batch).to(self.device)
-            nobs_batch = [np.array(obs) for obs in list(zip(*nobs_batch))]
-            nobs_batch = [torch.FloatTensor(nobs).to(self.device) for nobs in nobs_batch]
-            done_batch = torch.FloatTensor(done_batch).to(self.device)
-            loss, td_error = self.update_q(obs_batch, act_batch, rwd_batch, nobs_batch, done_batch, weights)
+        obs_batch = [np.array(obs) for obs in list(zip(*obs_batch))]
+        obs_batch = [torch.FloatTensor(obs).to(self.device) for obs in obs_batch]
+        act_batch = torch.FloatTensor(act_batch).to(self.device)
+        rwd_batch = torch.FloatTensor(rwd_batch).to(self.device)
+        nobs_batch = [np.array(obs) for obs in list(zip(*nobs_batch))]
+        nobs_batch = [torch.FloatTensor(nobs).to(self.device) for nobs in nobs_batch]
+        done_batch = torch.FloatTensor(done_batch).to(self.device)
+        loss, td_error = self.update_q(obs_batch, act_batch, rwd_batch, nobs_batch, done_batch, weights)
         self.update_target(self.q_target_network, self.q_network, p.tau)
         return loss, indexes, td_error
 
