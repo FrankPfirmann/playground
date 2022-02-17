@@ -2,6 +2,7 @@
 # solve error #15
 import os
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
+#os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 import argparse
 import logging
 import random
@@ -74,14 +75,14 @@ def train_dqn(dqn1=None, dqn2=None, num_iterations=p.num_iterations, episodes_pe
         q_target1 = Pommer_Q(p.p_observable or p.centralize_planes, transform_func)
         q1.to(device)
         q_target1.to(device)
-        dqn1 = DQN(q1, q_target1, p.exploration_noise, dq=p.double_q)
+        dqn1 = DQN(q1, q_target1, p.exploration_noise, dq=p.double_q, device=p.device)
 
     if dqn2 == None:
         q2 = Pommer_Q(p.p_observable, transform_func)
         q_target2 = Pommer_Q(p.p_observable, transform_func)
         q2.to(device)
         q_target2.to(device)
-        dqn2 = DQN(q2, q_target2, p.exploration_noise, dq=p.double_q)
+        dqn2 = DQN(q2, q_target2, p.exploration_noise, dq=p.double_q, device=p.device)
 
     data_generator = DataGeneratorPommerman(
         p.env,
@@ -177,10 +178,11 @@ def train_dqn(dqn1=None, dqn2=None, num_iterations=p.num_iterations, episodes_pe
             dqn2.set_train(False)
             policy1 = dqn1.get_policy()
             policy2 = dqn2.get_policy()
-            model_save_path = log_dir + "/" + str(i)
-            torch.save(dqn1.q_network.state_dict(), model_save_path + '_1')
-            torch.save(dqn2.q_network.state_dict(), model_save_path + '_2')
-            logging.info("Saved model to: " + model_save_path)
+            if not mean_run:
+                model_save_path = log_dir + "/" + str(i)
+                torch.save(dqn1.q_network.state_dict(), model_save_path + '_1')
+                torch.save(dqn2.q_network.state_dict(), model_save_path + '_2')
+                logging.info("Saved model to: " + model_save_path)
             data_generator.generate(p.episodes_per_eval, policy1, policy2, enemy, dqn1.q_network.get_transformer(),
                                     'train', 'train', max_steps, render=p.render_tests)
             dqn1.set_train(True)

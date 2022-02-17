@@ -26,7 +26,7 @@ import params as p
 from util.data import transform_observation
 from util.rewards import staying_alive_reward, go_down_right_reward, bomb_reward, skynet_reward
 from pommerman.constants import Action
-
+from operator import itemgetter
 class DataGeneratorPommerman:
     def __init__(self, env, augmentors: list=[])-> None:
         """
@@ -144,15 +144,19 @@ class DataGeneratorPommerman:
                 samples['weights'][i] = weight / max_weight
             
             # get sample transitions
-            transitions = list(zip(*np.array(self.buffers[agent_num])[samples['indexes']]))
-
+            #transitions = list(zip(*np.array(self.buffers[agent_num])[samples['indexes']]))
+            t = itemgetter(*samples['indexes'])(self.buffers[agent_num])
+            transitions = list(zip(*np.array(t)))
             return np.array(transitions[0]), np.array(transitions[1]), np.array(transitions[2]), np.array(transitions[3]), np.array(transitions[4]), \
                 samples['weights'], samples['indexes']
 
     def update_priorities(self, indexes, priorities, agent_num):
         ''' update priorities of transitions'''
         for idx, priority in zip(indexes, priorities):
-            priority = abs(priority[0].item())
+            if priority == 0.0:
+                priority = self._min(agent_num)
+            else:
+                priority = abs(priority[0].item())
             self.max_priorities[agent_num] = max(self.max_priorities[agent_num], priority)
             priority_alpha = priority ** self.alpha
             self._set_priority_min(idx, priority_alpha, agent_num)
