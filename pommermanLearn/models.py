@@ -7,7 +7,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-#TODO: express model structure as param
+# TODO: express model structure as param
 from pommerman.constants import Item
 
 import params as p
@@ -16,7 +16,7 @@ from util.data import calculate_center
 from util.data import centralize_view, decentralize_view
 from util.data import transform_observation, transform_observation_centralized
 from util.data import merge_views, crop_view
-## takes in a module and applies the specified weight initialization
+# takes in a module and applies the specified weight initialization
 
 
 def init_weights(m):
@@ -44,15 +44,19 @@ class Pommer_Q(nn.Module):
         self.tracker = BoardTracker()
 
         self.conv = nn.Sequential(
-            nn.Conv2d(in_channels=self.planes_num, out_channels=64, kernel_size=(3, 3), stride=(1, 1)),\
-            nn.Conv2d(in_channels=64, out_channels=64, kernel_size=(3, 3), stride=(1, 1)),
-            nn.Conv2d(in_channels=64, out_channels=64, kernel_size=(3, 3), stride=(1, 1)),
-            nn.Conv2d(in_channels=64, out_channels=64, kernel_size=(3, 3), stride=(1, 1)),
+            nn.Conv2d(in_channels=self.planes_num, out_channels=64,
+                      kernel_size=(3, 3), stride=(1, 1)),
+            nn.Conv2d(in_channels=64, out_channels=64,
+                      kernel_size=(3, 3), stride=(1, 1)),
+            nn.Conv2d(in_channels=64, out_channels=64,
+                      kernel_size=(3, 3), stride=(1, 1)),
+            nn.Conv2d(in_channels=64, out_channels=64,
+                      kernel_size=(3, 3), stride=(1, 1)),
             nn.Flatten()
         )
         self.board_transform_func = board_transform_func
 
-        self.linear=nn.Sequential(
+        self.linear = nn.Sequential(
             nn.Linear(in_features=6, out_features=6),
             nn.ReLU()
         )
@@ -62,9 +66,9 @@ class Pommer_Q(nn.Module):
             nn.Linear(in_features=32, out_features=6)
         )
 
-        #self.conv.apply(init_weights)
-        #self.linear.apply(init_weights)
-        #self.combined.apply(init_weights)
+        # self.conv.apply(init_weights)
+        # self.linear.apply(init_weights)
+        # self.combined.apply(init_weights)
 
     def validate_memory(self, nobs):
         if self.memory is None:
@@ -75,26 +79,29 @@ class Pommer_Q(nn.Module):
 
         if self.memory[1].shape != nobs[1].shape:
             return False
-        
-        if self.memory[1][0,0]+1 != nobs[1][0,0]:
+
+        if self.memory[1][0, 0]+1 != nobs[1][0, 0]:
             return False
 
         return True
 
     def _calc_linear_inputdim(self, board_size):
-        dim = (board_size-self.conv_kernel_size+self.padding*2)/self.conv_kernel_stride + 1
-        dim = np.floor((dim+ (self.pool_kernel_size -1) - 1)/self.pool_kernel_stride)
+        dim = (board_size-self.conv_kernel_size+self.padding*2) / \
+            self.conv_kernel_stride + 1
+        dim = np.floor((dim + (self.pool_kernel_size - 1) - 1) /
+                       self.pool_kernel_stride)
 
         return dim*dim*self.last_cnn_depth
 
     def forward(self, obs):
         if self.use_memory:
-            position = [obs[1][0,1], obs[1][0,2]]
+            position = [obs[1][0, 1], obs[1][0, 2]]
             self.tracker.update(obs[0], position)
-            obs[0] = self.tracker.get_view(position, view_range=4, centralized=True)
+            obs[0] = self.tracker.get_view(
+                position, view_range=4, centralized=True)
 
-        x1=obs[0] # Board
-        x2=obs[1] # Step, Position
+        x1 = obs[0]  # Board
+        x2 = obs[1]  # Step, Position
 
         x1 = self.conv(x1)
         x2 = self.linear(x2)
@@ -106,7 +113,7 @@ class Pommer_Q(nn.Module):
     def get_transformer(self) -> Callable:
         """
         Return a callable for input transformation.
-        
+
         The callable should take a ``dict`` containing data of a single
         observation from the Pommerman environment and return a ``list``
         of individual numpy arrays that can be used later as an input
@@ -125,12 +132,13 @@ class Pommer_Q(nn.Module):
 
         return transformer
 
+
 class PommerQEmbeddingMLP(nn.Module):
     def __init__(self, embedding_model, embedding_size=128):
         super(PommerQEmbeddingMLP, self).__init__()
         self.embedding_model = embedding_model
 
-        self.linear=nn.Sequential(
+        self.linear = nn.Sequential(
             nn.Linear(in_features=embedding_size, out_features=128),
             nn.ReLU(),
             nn.Linear(in_features=128, out_features=128),
@@ -144,7 +152,7 @@ class PommerQEmbeddingMLP(nn.Module):
         )
 
     def forward(self, obs):
-        x_board=obs[0] # Board Embedding
+        x_board = obs[0]  # Board Embedding
 
         x = self.linear(x_board).squeeze()
         return x
@@ -152,7 +160,7 @@ class PommerQEmbeddingMLP(nn.Module):
     def get_transformer(self) -> Callable:
         """
         Return a callable for input transformation.
-        
+
         The callable should take a ``dict`` containing data of a single
         observation from the Pommerman environment and return a ``list``
         of individual numpy arrays that can be used later as an input
@@ -161,9 +169,9 @@ class PommerQEmbeddingMLP(nn.Module):
         def transformer(obs: dict) -> list:
             planes = transform_observation(obs, p_obs=True, centralized=True)
             planes = np.array(planes, dtype=np.float32)
-            
+
             # TODO: Make 'cpu' variable
-            # Generate embedding 
+            # Generate embedding
             #flattened = torch.tensor(flattened, device=torch.device('cpu'))
             X = torch.tensor(planes, device=torch.device('cpu')).unsqueeze(0)
             board_embedding = self.embedding_model.forward(X)
@@ -174,23 +182,23 @@ class PommerQEmbeddingMLP(nn.Module):
 
         return transformer
 
+
 class PommerQEmbeddingRNN(nn.Module):
     def __init__(self, embedding_model):
         super(PommerQEmbeddingRNN, self).__init__()
         self.embedding_model = embedding_model
-        self.memory=[]
+        self.memory = []
         self.steps = 10
 
         # Stacked lstm
         self.rnn = [nn.LSTM(64, 64) for step in range(self.steps)]
 
-        self.linear=nn.Sequential(
+        self.linear = nn.Sequential(
             nn.Flatten(),
             nn.ReLU(),
             nn.Linear(in_features=64, out_features=6),
             nn.Softmax(dim=-1)
         )
-
 
     def forward(self, obs):
         while len(self.memory) >= self.steps:
@@ -199,12 +207,12 @@ class PommerQEmbeddingRNN(nn.Module):
         while len(self.memory) != self.steps:
             self.memory.append(obs)
 
-        #x=obs[0] # Board Embedding
+        # x=obs[0] # Board Embedding
 
         x = None
         h = None
         for obs_n, rnn_n in zip(self.memory, self.rnn):
-            x_n=obs_n[0]
+            x_n = obs_n[0]
             x, h = rnn_n(x_n, h)
 
         x = self.linear(x).squeeze()
@@ -213,7 +221,7 @@ class PommerQEmbeddingRNN(nn.Module):
     def get_transformer(self) -> Callable:
         """
         Return a callable for input transformation.
-        
+
         The callable should take a ``dict`` containing data of a single
         observation from the Pommerman environment and return a ``list``
         of individual numpy arrays that can be used later as an input
@@ -223,9 +231,9 @@ class PommerQEmbeddingRNN(nn.Module):
             planes = transform_observation(obs, p_obs=True, centralized=True)
             planes = np.array(planes, dtype=np.float32)
 
-            # Generate embedding 
+            # Generate embedding
             #flattened = planes.flatten()
-            #flattened = torch.tensor(flattened, device=torch.device('cpu')) # TODO: Make 'cpu' variable
+            # flattened = torch.tensor(flattened, device=torch.device('cpu')) # TODO: Make 'cpu' variable
             X = torch.tensor(planes, device=torch.device('cpu')).unsqueeze(0)
             board_embedding = self.embedding_model.forward(X)
             board_embedding = board_embedding.detach().numpy()
@@ -234,6 +242,7 @@ class PommerQEmbeddingRNN(nn.Module):
             ]
 
         return transformer
+
 
 class BoardTracker:
     def __init__(self):
@@ -249,41 +258,42 @@ class BoardTracker:
         """
         assert view.shape[-1] == view.shape[-2]
 
-        if self.board is None or self.board.shape != view.shape :
+        if self.board is None or self.board.shape != view.shape:
             self.position = position
             self.board = view
             return
 
         batch_size = view.shape[0]
         for sample in range(batch_size):
-            for layer in range(12): # Merge all layers but fog
-                if layer in [0,1]: # Remember walls and passages always
-                    forgetfulness=0.0
-                else: # Forget other layers that are out of view slowly
-                    forgetfulness=p.forgetfullness
+            for layer in range(12):  # Merge all layers but fog
+                if layer in [0, 1]:  # Remember walls and passages always
+                    forgetfulness = 0.0
+                else:  # Forget other layers that are out of view slowly
+                    forgetfulness = p.forgetfullness
 
                 # Invert fog to get field of view
 
-                first    = self.board[sample, layer, :, :]
-                second   = view[sample, layer, :, :]
-                fog      = view[sample, -1, :, :]
-                fov      = 1 - fog
+                first = self.board[sample, layer, :, :]
+                second = view[sample, layer, :, :]
+                fog = view[sample, -1, :, :]
+                fov = 1 - fog
 
-                first    = decentralize_view(first,  self.position, (11,11))
-                second   = decentralize_view(second, position, (11,11))
-                fov      = decentralize_view(fov,    position, (11,11))
+                first = decentralize_view(first,  self.position, (11, 11))
+                second = decentralize_view(second, position, (11, 11))
+                fov = decentralize_view(fov,    position, (11, 11))
 
                 if p.memory_method == 'forgetting':
-                    merged = merge_views(first, second, fov, forgetfullness=forgetfulness)
+                    merged = merge_views(
+                        first, second, fov, forgetfullness=forgetfulness)
                 elif p.memory_method == 'counting':
                     merged = merge_views_counting(first, second, fov)
 
                 # Recentralize and safe into memory
-                self.board[sample, layer, :, :] = centralize_view(merged, position)
+                self.board[sample, layer, :, :] = centralize_view(
+                    merged, position)
         self.position = position
 
-
-    def get_view(self, position: list, view_range: int=0, centralized=False) -> np.array:
+    def get_view(self, position: list, view_range: int = 0, centralized=False) -> np.array:
         """
         Return a view of the internal global board state
 
@@ -297,14 +307,14 @@ class BoardTracker:
         :return: The resulting view
         """
         batch_size = self.board.shape[0]
-        layers     = self.board.shape[1]
+        layers = self.board.shape[1]
 
         if view_range > 0:
-            fov    = 2*view_range + 1
+            fov = 2*view_range + 1
             bounds = (batch_size, layers, fov, fov)
         else:
             bounds = self.board.shape
-        
+
         if torch.is_tensor(self.board):
             views = torch.zeros(bounds, device=p.device)
         else:
@@ -318,10 +328,10 @@ class BoardTracker:
                     view = crop_view(view, view_range)
                 if not centralized:
                     view = decentralize_view(view, position, self.bounds)
-                
+
                 views[sample, layer, :, :] = view
         return views
-    
+
     def reset(self) -> None:
         """
         Reset the internal representation
