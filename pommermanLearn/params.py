@@ -28,7 +28,7 @@ exploration_noise = 0.1
 exploration_dropoff = 0.01
 explortation_min = 0.05
 #data_generator.py
-
+set_position=False
 replay_size = 2**16 # must be a power of 2 to be compatible with prioritized replay
 max_steps = 800
 reward_func = 'SkynetReward' #SkynetReward, BombReward

@@ -129,7 +129,7 @@ class DataGeneratorPommerman:
         skynet_reward_log = [[0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0]]
         for i_episode in range(episodes):
             agent_inds, agent_ids, agent_list = self._init_agent_list(agent1, agent2, policy1, policy2
-                                                                      , enemy, transformer, True)
+                                                                      , enemy, transformer, p.set_position)
             env = pommerman.make(self.env, agent_list)
             obs = env.reset()
             done = False
