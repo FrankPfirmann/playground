@@ -54,7 +54,7 @@ def transform_observation(obs: dict, p_obs: bool=False, centralized: bool=False,
     transformed = np.moveaxis(transformed, -1, 0)  # move channel dimension to front (pytorch expects this)
     return transformed
 
-def centralize_view(view: np.array, position: np.array, padding: int=0):
+def centralize_view(view: torch.tensor, position: np.array, padding: int=0):
     """
     Centralize the view around the given position.
 
@@ -67,7 +67,12 @@ def centralize_view(view: np.array, position: np.array, padding: int=0):
     :return: The view with ``position`` as its new center point
     """
 
-    centralized = np.ones(tuple([2*d-1 for d in view.shape])) * padding
+    bounds = tuple([2*d-1 for d in view.shape])
+    if torch.is_tensor(view):
+        centralized = torch.ones(bounds)
+    else:
+        centralized = np.ones(bounds)
+    centralized *= padding
 
     ax, ay = position # Agent position
     cx, cy = calculate_center(centralized.shape)

@@ -1,3 +1,4 @@
+from ctypes import pointer
 from heapq import merge
 import logging
 from typing import Callable
@@ -40,7 +41,7 @@ class Pommer_Q(nn.Module):
         self.padding = 1
         self.use_memory = False
         self.use_memory = p.use_memory
-        self.memory = None
+        self.tracker = BoardTracker()
 
         self.conv = nn.Sequential(
             nn.Conv2d(in_channels=self.planes_num, out_channels=64, kernel_size=(3, 3), stride=(1, 1)),\
@@ -80,47 +81,6 @@ class Pommer_Q(nn.Module):
 
         return True
 
-    def update_memory(self, nobs):
-        if self.memory is None or not self.validate_memory(nobs):
-            self.memory = [nobs[0], nobs[1]]
-            return
-
-        batch_size = nobs[0].shape[0]
-        for sample in range(batch_size):
-            for layer in range(12): # Merge all layers but fog
-                if layer in [0,1]: # Remember walls and passages always
-                    forgetfulness=0.0
-                else: # Forget other layers that are out of view slowly
-                    forgetfulness=p.forgetfullness
-
-                # Invert fog to get field of view
-
-                current_position = [nobs[1][0,1], nobs[1][0,2]]
-                last_position= [self.memory[1][0,1], self.memory[1][0,2]]
-                first    = self.memory[0][sample, layer, :, :]
-                second   = nobs[0][sample, layer, :, :]
-                fog      = nobs[0][sample, -1, :, :]
-                fov      = 1 - fog
-
-                first    = decentralize_view(first,  last_position, (11,11))
-                second   = decentralize_view(second, current_position, (11,11))
-                fov      = decentralize_view(fov,    current_position, (11,11))
-
-                if p.memory_method == 'forgetting':
-                    merged = merge_views_counting(first, second, fov)
-                if p.memory_method == 'counting':
-                    merged = merge_views(first, second, fov, forgetfullness=forgetfulness)
-
-                if sample==0 and layer==2:
-                    print(merged)
-
-                # Recentralize and safe into memory
-                merged = centralize_view(merged, current_position, 0)
-                merged = torch.tensor(merged, device=p.device)
-                nobs[0][sample, layer, :, :] = merged
-
-        self.memory = nobs
-
     def _calc_linear_inputdim(self, board_size):
         dim = (board_size-self.conv_kernel_size+self.padding*2)/self.conv_kernel_stride + 1
         dim = np.floor((dim+ (self.pool_kernel_size -1) - 1)/self.pool_kernel_stride)
@@ -129,8 +89,9 @@ class Pommer_Q(nn.Module):
 
     def forward(self, obs):
         if self.use_memory:
-            self.update_memory(obs)
-            obs = self.memory
+            position = [obs[1][0,1], obs[1][0,2]]
+            self.tracker.update(obs[0], position)
+            obs[0] = self.tracker.get_view(position, view_range=4, centralized=True)
 
         x1=obs[0] # Board
         x2=obs[1] # Step, Position
@@ -275,8 +236,7 @@ class PommerQEmbeddingRNN(nn.Module):
         return transformer
 
 class BoardTracker:
-    def __init__(self, bounds: tuple):
-        self.bounds = bounds
+    def __init__(self):
         self.reset()
 
     def update(self, view: np.array, position: list) -> None:
@@ -287,23 +247,43 @@ class BoardTracker:
         :param position: The position of the views center in the global
             coordinate system.
         """
-        assert view.shape[0] == view.shape[1]
+        assert view.shape[-1] == view.shape[-2]
 
-        pad_width = int((self.bounds[0]*2-1-1)/2 - (view.shape[0]-1)/2)
-        fov = np.pad(np.ones(view.shape), pad_width, constant_values=0)
-        view = np.pad(view, pad_width, constant_values=0)
+        if self.board is None or self.board.shape != view.shape :
+            self.position = position
+            self.board = view
+            return
 
-        # Decentralize view
-        fov = decentralize_view(fov, position, bounds=self.bounds)
-        view = decentralize_view(view, position, bounds=self.bounds)
+        batch_size = view.shape[0]
+        for sample in range(batch_size):
+            for layer in range(12): # Merge all layers but fog
+                if layer in [0,1]: # Remember walls and passages always
+                    forgetfulness=0.0
+                else: # Forget other layers that are out of view slowly
+                    forgetfulness=p.forgetfullness
 
-        # Merge views
-        # TODO: Add option for merge with forgetfullness or externalize merging
-        #self.merged = merge_views(self.merged, view, fov, forgetfullness=0.5)
-        fog = 1-fov
-        self.board = view*fov + self.board*fog+np.where(self.board != fov, fog, fov)*fog
+                # Invert fog to get field of view
 
-    def get_view(self, position: list=None, view_range: int=0, centralized=False) -> np.array:
+                first    = self.board[sample, layer, :, :]
+                second   = view[sample, layer, :, :]
+                fog      = view[sample, -1, :, :]
+                fov      = 1 - fog
+
+                first    = decentralize_view(first,  self.position, (11,11))
+                second   = decentralize_view(second, position, (11,11))
+                fov      = decentralize_view(fov,    position, (11,11))
+
+                if p.memory_method == 'forgetting':
+                    merged = merge_views(first, second, fov, forgetfullness=forgetfulness)
+                elif p.memory_method == 'counting':
+                    merged = merge_views_counting(first, second, fov)
+
+                # Recentralize and safe into memory
+                self.board[sample, layer, :, :] = centralize_view(merged, position)
+        self.position = position
+
+
+    def get_view(self, position: list, view_range: int=0, centralized=False) -> np.array:
         """
         Return a view of the internal global board state
 
@@ -316,21 +296,35 @@ class BoardTracker:
 
         :return: The resulting view
         """
-        if position is None:
-            position = calculate_center(self.board.shape)
+        batch_size = self.board.shape[0]
+        layers     = self.board.shape[1]
 
-        view = centralize_view(self.board, position, 0)
         if view_range > 0:
-            view = crop_view(view, view_range)
-        
-        if centralized:
-            return view
+            fov    = 2*view_range + 1
+            bounds = (batch_size, layers, fov, fov)
         else:
-            # TODO: Add unit tests
-            return decentralize_view(view, position, self.bounds)
+            bounds = self.board.shape
+        
+        if torch.is_tensor(self.board):
+            views = torch.zeros(bounds, device=p.device)
+        else:
+            views = np.zeros(bounds)
+
+        for sample in range(batch_size):
+            for layer in range(layers):
+                #view = centralize_view(self.board[sample, layer, :, :], position, 0)
+                view = self.board[sample, layer, :, :]
+                if view_range > 0:
+                    view = crop_view(view, view_range)
+                if not centralized:
+                    view = decentralize_view(view, position, self.bounds)
+                
+                views[sample, layer, :, :] = view
+        return views
     
     def reset(self) -> None:
         """
-        Reset the internal representation to its initial state
+        Reset the internal representation
         """
-        self.board = np.zeros(self.bounds) 
+        self.board = None
+        self.position = None
