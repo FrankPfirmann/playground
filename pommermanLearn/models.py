@@ -15,8 +15,10 @@ from util.data import merge_views_counting
 from util.data import calculate_center
 from util.data import centralize_view, decentralize_view
 from util.data import transform_observation, transform_observation_centralized
-from util.data import merge_views, crop_view
-# takes in a module and applies the specified weight initialization
+from util.data import merge_views, crop_view, merge_views_life
+
+
+## takes in a module and applies the specified weight initialization
 
 
 def init_weights(m):
@@ -36,79 +38,65 @@ class Pommer_Q(nn.Module):
         self.pool_kernel_size = 2
         self.pool_kernel_stride = 2
         self.last_cnn_depth = 32
-        self.input_dim = 64
+        self.conv_out_dim = 64
         self.planes_num = 15 if p_central else 14
         self.padding = 1
-        self.use_memory = False
-        self.use_memory = p.use_memory
-        self.tracker = BoardTracker()
-
+        self.linear_out_dim = 32
+        self.combined_out_dim = 128
+        self.memory = None
+        self.p_obs = p.p_observable
+        self.noisy1v = NoisyLinear(self.combined_out_dim, 128)
+        self.noisy2v = NoisyLinear(128, 1)
+        self.noisy1a = NoisyLinear(self.combined_out_dim, 128)
+        self.noisy2a = NoisyLinear(128, 6)
         self.conv = nn.Sequential(
-            nn.Conv2d(in_channels=self.planes_num, out_channels=64,
-                      kernel_size=(3, 3), stride=(1, 1)),
-            nn.Conv2d(in_channels=64, out_channels=64,
-                      kernel_size=(3, 3), stride=(1, 1)),
-            nn.Conv2d(in_channels=64, out_channels=64,
-                      kernel_size=(3, 3), stride=(1, 1)),
-            nn.Conv2d(in_channels=64, out_channels=64,
-                      kernel_size=(3, 3), stride=(1, 1)),
+            nn.Conv2d(in_channels=self.planes_num, out_channels=64, kernel_size=(3, 3), stride=(1, 1)), \
+            nn.Conv2d(in_channels=64, out_channels=64, kernel_size=(3, 3), stride=(1, 1)),
+            nn.Conv2d(in_channels=64, out_channels=64, kernel_size=(3, 3), stride=(1, 1)),
+            nn.Conv2d(in_channels=64, out_channels=64, kernel_size=(3, 3), stride=(1, 1)),
             nn.Flatten()
         )
         self.board_transform_func = board_transform_func
 
         self.linear = nn.Sequential(
-            nn.Linear(in_features=6, out_features=6),
+            nn.Linear(in_features=6, out_features=self.linear_out_dim),
             nn.ReLU()
         )
         self.combined = nn.Sequential(
-            nn.LazyLinear(out_features=32),
+            nn.LazyLinear(out_features=self.combined_out_dim),
+            nn.ReLU()
+
+        )
+        self.value_stream = nn.Sequential(
+            self.noisy1v,
             nn.ReLU(),
-            nn.Linear(in_features=32, out_features=6)
+            self.noisy2v
+        )
+        self.advantage_stream = nn.Sequential(
+            self.noisy1a,
+            nn.ReLU(),
+            self.noisy2a
         )
 
-        # self.conv.apply(init_weights)
-        # self.linear.apply(init_weights)
-        # self.combined.apply(init_weights)
-
-    def validate_memory(self, nobs):
-        if self.memory is None:
-            return False
-
-        if self.memory[0].shape != nobs[0].shape:
-            return False
-
-        if self.memory[1].shape != nobs[1].shape:
-            return False
-
-        if self.memory[1][0, 0]+1 != nobs[1][0, 0]:
-            return False
-
-        return True
-
-    def _calc_linear_inputdim(self, board_size):
-        dim = (board_size-self.conv_kernel_size+self.padding*2) / \
-            self.conv_kernel_stride + 1
-        dim = np.floor((dim + (self.pool_kernel_size - 1) - 1) /
-                       self.pool_kernel_stride)
-
-        return dim*dim*self.last_cnn_depth
-
     def forward(self, obs):
-        if self.use_memory:
-            position = [obs[1][0, 1], obs[1][0, 2]]
-            self.tracker.update(obs[0], position)
-            obs[0] = self.tracker.get_view(
-                position, view_range=4, centralized=True)
 
         x1 = obs[0]  # Board
         x2 = obs[1]  # Step, Position
-
         x1 = self.conv(x1)
         x2 = self.linear(x2)
-        x1_2 = torch.cat((x1, x2), dim=1).squeeze()
+        concat = torch.cat((x1, x2), dim=1).squeeze()
+        combined_out = self.combined(concat)
 
-        x = self.combined(x1_2).unsqueeze(0)
-        return x
+        values = self.value_stream(combined_out)
+        advantages = self.advantage_stream(combined_out)
+        qvalues = values + (advantages - torch.mean(advantages))
+        return qvalues
+
+    def reset_noise(self):
+        self.noisy1v.reset_noise()
+        self.noisy2v.reset_noise()
+        self.noisy1a.reset_noise()
+        self.noisy2a.reset_noise()
 
     def get_transformer(self) -> Callable:
         """
@@ -166,13 +154,14 @@ class PommerQEmbeddingMLP(nn.Module):
         of individual numpy arrays that can be used later as an input
         value in the ``forward()`` function.
         """
+
         def transformer(obs: dict) -> list:
             planes = transform_observation(obs, p_obs=True, centralized=True)
             planes = np.array(planes, dtype=np.float32)
 
             # TODO: Make 'cpu' variable
             # Generate embedding
-            #flattened = torch.tensor(flattened, device=torch.device('cpu'))
+            # flattened = torch.tensor(flattened, device=torch.device('cpu'))
             X = torch.tensor(planes, device=torch.device('cpu')).unsqueeze(0)
             board_embedding = self.embedding_model.forward(X)
             board_embedding = board_embedding.detach().numpy()
@@ -181,6 +170,78 @@ class PommerQEmbeddingMLP(nn.Module):
             ]
 
         return transformer
+
+
+class NoisyLinear(nn.Module):
+    """Noisy linear module for NoisyNet.
+        https://github.com/Curt-Park/rainbow-is-all-you-need/blob/master/05.noisy_net.ipynb
+
+    Attributes:
+        in_features (int): input size of linear module
+        out_features (int): output size of linear module
+        sigma_zero (float): initial std value
+        weight_mu (nn.Parameter): mean value weight parameter
+        weight_sigma (nn.Parameter): std value weight parameter
+        bias_mu (nn.Parameter): mean value bias parameter
+        bias_sigma (nn.Parameter): std value bias parameter
+
+    """
+
+    def __init__(self, in_features: int, out_features: int, sigma_zero: float = 0.5):
+        """Initialization."""
+        super(NoisyLinear, self).__init__()
+
+        self.in_features = in_features
+        self.out_features = out_features
+        self.sigma_zero = sigma_zero
+
+        self.weight_mu = nn.Parameter(torch.Tensor(out_features, in_features))
+        self.weight_sigma = nn.Parameter(
+            torch.Tensor(out_features, in_features)
+        )
+        self.register_buffer(
+            "weight_epsilon", torch.Tensor(out_features, in_features)
+        )
+        self.bias_mu = nn.Parameter(torch.Tensor(out_features))
+        self.bias_sigma = nn.Parameter(torch.Tensor(out_features))
+        self.register_buffer("bias_epsilon", torch.Tensor(out_features))
+
+        self.initialize_weights()
+        self.reset_noise()
+
+    def initialize_weights(self):
+        """Initializing the trainable network parameters"""
+        mu_range = 1 / np.sqrt(self.in_features)
+        self.weight_mu.data.uniform_(-mu_range, mu_range)
+        self.weight_sigma.data.fill_(
+            self.sigma_zero / np.sqrt(self.in_features)
+        )
+        self.bias_mu.data.uniform_(-mu_range, mu_range)
+        self.bias_sigma.data.fill_(
+            self.sigma_zero / np.sqrt(self.out_features)
+        )
+
+    def reset_noise(self):
+        """Sample new noise for the network"""
+        epsilon_in = self.scale_noise(self.in_features)
+        epsilon_out = self.scale_noise(self.out_features)
+
+        # factorized gaussian noise
+        self.weight_epsilon.copy_(epsilon_out.ger(epsilon_in))
+        self.bias_epsilon.copy_(epsilon_out)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Forward pass """
+        return F.linear(
+            x,
+            self.weight_mu + self.weight_sigma * self.weight_epsilon,
+            self.bias_mu + self.bias_sigma * self.bias_epsilon,
+        )
+
+    def scale_noise(self, size: int) -> torch.Tensor:
+        """Scale the noise with real-valued function"""
+        x = torch.randn(size)
+        return x.sign().mul(x.abs().sqrt())
 
 
 class PommerQEmbeddingRNN(nn.Module):
@@ -227,12 +288,13 @@ class PommerQEmbeddingRNN(nn.Module):
         of individual numpy arrays that can be used later as an input
         value in the ``forward()`` function.
         """
+
         def transformer(obs: dict) -> list:
             planes = transform_observation(obs, p_obs=True, centralized=True)
             planes = np.array(planes, dtype=np.float32)
 
             # Generate embedding
-            #flattened = planes.flatten()
+            # flattened = planes.flatten()
             # flattened = torch.tensor(flattened, device=torch.device('cpu')) # TODO: Make 'cpu' variable
             X = torch.tensor(planes, device=torch.device('cpu')).unsqueeze(0)
             board_embedding = self.embedding_model.forward(X)

@@ -44,17 +44,17 @@ class DQN(object):
             x.data.copy_(x.data * (1.0 - t) + y.data * t)
 
     def get_policy(self):
-        def policy(obs):
+        def policy(obs, valid_actions):
             # get valid actions according to action filter and transform to be able to filter tensor
-            valid_actions = get_filtered_actions(obs)
             valid_actions_transformed = []
             for i in range(6):
                 valid_actions_transformed += [1] if i in valid_actions else [float("NaN")]
             valid_actions_transformed = torch.FloatTensor(valid_actions_transformed).to(self.device).unsqueeze(0)
 
-            obs = self.q_network.get_transformer()(obs)
+            #obs = self.q_network.get_transformer()(obs)
             obs = [torch.FloatTensor(o).to(self.device).unsqueeze(0) for o in obs]
 
+            self.q_network.reset_noise()
             if len(valid_actions) != 0:
                 q_values = self.q_network(obs)*valid_actions_transformed
             else:
@@ -101,7 +101,7 @@ class DQN(object):
         loss = F.mse_loss(q_target, q)
         if p.prioritized_replay:
             loss = F.mse_loss(q_target, q, reduction='none')
-            weights = torch.tensor(weights) 
+            weights = torch.tensor(weights).to(self.device)
             loss = torch.mean(weights * loss)
         self.q_optim.zero_grad()
         loss.backward()
@@ -123,6 +123,8 @@ class DQN(object):
         nobs_batch = [np.array(obs) for obs in list(zip(*nobs_batch))]
         nobs_batch = [torch.FloatTensor(nobs).to(self.device) for nobs in nobs_batch]
         done_batch = torch.FloatTensor(done_batch).to(self.device)
+        self.q_network.reset_noise()
+        self.q_target_network.reset_noise()
         loss, td_error = self.update_q(obs_batch, act_batch, rwd_batch, nobs_batch, done_batch, weights)
         self.update_target(self.q_target_network, self.q_network, p.tau)
         return loss, indexes, td_error
