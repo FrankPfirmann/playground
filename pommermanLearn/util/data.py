@@ -149,17 +149,22 @@ def crop_view(view: np.array, view_range: int):
 
     return view[left:right, up:down]
 
+
 def transform_observation_centralized(obs):
     return transform_observation(obs, p_obs=False, centralized=True)
+
 
 def transform_observation_partial(obs):
     return transform_observation(obs, p_obs=True, centralized=True)
 
+
 def transform_observation_simple(obs):
     return transform_observation(obs)
 
+
 def transform_observation_partial_uncropped(obs):
     return transform_observation(obs, p_obs=True, centralized=True, crop_fog=False)
+
 
 def calc_dist(agent_ind, nobs, teammate_ind=-1):
     other_inds = [i for i in range(0, len(nobs))]
@@ -194,6 +199,27 @@ def merge_views(first: np.array, second: np.array, fov: np.array, forgetfullness
 
     merged = second*fov + first*fog*remembrance
     return merged
+
+
+def merge_views_life(first: np.array, second: np.array, fov: np.array):
+    """
+        Merge the first and second view in the field of view and decrease
+        the data around it by 1 (for bomb and flame life)
+
+        :param first: A numpy array respresenting the first view
+        :param second: A numpy array respresenting the second view
+        :param fov: A binary numpy array respresenting the field of view
+
+        :return: second in area of fov and first decreased by 1 for the remainder
+        """
+    assert first.shape == second.shape == fov.shape, f"Shapes of planes to merge must match exactly, but first is {first.shape}, second is {second.shape} and fov is {fov.shape}"
+    fog = 1 - fov
+    first_dec = first * fog - 1
+    first_dec[first_dec < 0] = 0
+
+    merged = second * fov + first_dec * fog
+    return merged
+
 
 def merge_views_counting(first: np.array, second: np.array, fov: np.array):
     """
