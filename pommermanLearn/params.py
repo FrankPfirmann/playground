@@ -10,28 +10,20 @@ intermediate_test = 100
 centralize_planes = True
 render_tests = False
 env = 'PommeTeamCompetition-v0'  # PommeFFACompetition-v0 or OneVsOne-v0 or PommeTeamCompetition-v0
-episode_backward = False
 p_observable = True
 crop_fog=True
-backplay = False
 double_q = True
 prioritized_replay = True
 beta = 0 # determines how replays should be weighted (beta==0 --> all weights are 1, beta==1 --> influence of replays is fully normalized)
 device = torch.device("cpu") if not torch.cuda.is_available() else torch.device("cuda")
-
+communicate=False
 #dqn.py
 seed = 1
 
 gamma = 0.99
 tau = 0.005
-hidden_size = 256
 lr_q = 0.0003
-lr_policy = 0.0003
 
-max_trans = 100000
-warmup_trans = 500
-eval_every = 500
-eval_episodes = 10
 exploration_noise = 0.1
 exploration_dropoff = 0.01
 explortation_min = 0.05

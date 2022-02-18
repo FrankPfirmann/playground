@@ -36,6 +36,36 @@ class PommermanJSONEncoder(json.JSONEncoder):
         return json.JSONEncoder.default(self, obj)
 
 
+def make_custom_board():
+    '''custom grid like map'''
+    size = 9
+    board = np.ones((size,
+                     size)).astype(np.uint8) * constants.Item.Passage.value
+
+    def lay_at_all_direction(board, size, i, j, value):
+        board[j, i] = value
+        board[size - 1 -j, i] = value
+        board[i, j] = value
+        board[i, size - 1 -j] = value
+    board[1, 1] = constants.Item.Agent0.value
+    board[size - 2, 1] = constants.Item.Agent1.value
+    board[size - 2, size - 2] = constants.Item.Agent2.value
+    board[1, size - 2] = constants.Item.Agent3.value
+    rigid_positons = []
+    for i in range(2, size-2, 2):
+        for j in range(2, size-2, 2):
+            rigid_positons.append((i, j))
+    for r in rigid_positons:
+        board[r] = constants.Item.Rigid.value
+    for i in range(0, size, 2):
+        lay_at_all_direction(board, size, i, 0, constants.Item.Rigid.value)
+    for i in range(1, size, 2):
+        lay_at_all_direction(board, size, i, 0, constants.Item.Wood.value)
+    for i in range(3, size-3, 2):
+        lay_at_all_direction(board, size, i, 1, constants.Item.Wood.value)
+    for i in range(1, size-1, 2):
+        lay_at_all_direction(board, size, i, 3, constants.Item.Wood.value)
+    return board
 def make_board(size, num_rigid=0, num_wood=0, num_agents=4):
     """Make the random but symmetric board.
 
@@ -60,6 +90,8 @@ def make_board(size, num_rigid=0, num_wood=0, num_agents=4):
     Returns:
       board: The resulting random board.
     """
+    if num_rigid < 0:
+        return make_custom_board()
 
     def lay_wall(value, num_left, coordinates, board):
         '''Lays all of the walls on a board'''
@@ -151,10 +183,24 @@ def make_board(size, num_rigid=0, num_wood=0, num_agents=4):
         board, agents = make(size, num_rigid, num_wood, num_agents)
 
     return board
+def make_custom_items():
+    '''make items at the middle wood blocks at the borders'''
+    item_positions = {}
+    item_positions[0, 3] = constants.Item.ExtraBomb.value
+    item_positions[3, 8] = constants.Item.ExtraBomb.value
+    item_positions[8, 5] = constants.Item.ExtraBomb.value
+    item_positions[5, 0] = constants.Item.ExtraBomb.value
 
+    item_positions[3, 0] = constants.Item.IncrRange.value
+    item_positions[8, 3] = constants.Item.IncrRange.value
+    item_positions[5, 8] = constants.Item.IncrRange.value
+    item_positions[0, 5] = constants.Item.IncrRange.value
+    return item_positions
 
 def make_items(board, num_items):
     '''Lays all of the items on the board'''
+    if num_items == -1:
+        return make_custom_items()
     item_positions = {}
     while num_items > 0:
         row = random.randint(0, len(board) - 1)
