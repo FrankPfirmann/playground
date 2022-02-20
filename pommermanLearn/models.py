@@ -107,9 +107,10 @@ class Pommer_Q(nn.Module):
         of individual numpy arrays that can be used later as an input
         value in the ``forward()`` function.
         """
-        def transformer(obs: dict) -> list:
+        def transformer(obs: dict, pre_transformed=None) -> list:
+            board = pre_transformed if pre_transformed is not None else self.board_transform_func(obs)
             return [
-                self.board_transform_func(obs),
+                board,
                 np.array(np.hstack((
                     np.array(obs['step_count']),
                     np.array(list(obs['position'])),
@@ -304,99 +305,3 @@ class PommerQEmbeddingRNN(nn.Module):
             ]
 
         return transformer
-
-
-class BoardTracker:
-    def __init__(self):
-        self.reset()
-
-    def update(self, view: np.array, position: list) -> None:
-        """
-        Updates the global state with the centralized and cropped ``view``
-
-        :param view: A cropped and centralized view of the board
-        :param position: The position of the views center in the global
-            coordinate system.
-        """
-        assert view.shape[-1] == view.shape[-2]
-
-        if self.board is None or self.board.shape != view.shape:
-            self.position = position
-            self.board = view
-            return
-
-        batch_size = view.shape[0]
-        for sample in range(batch_size):
-            for layer in range(12):  # Merge all layers but fog
-                if layer in [0, 1]:  # Remember walls and passages always
-                    forgetfulness = 0.0
-                else:  # Forget other layers that are out of view slowly
-                    forgetfulness = p.forgetfullness
-
-                # Invert fog to get field of view
-
-                first = self.board[sample, layer, :, :]
-                second = view[sample, layer, :, :]
-                fog = view[sample, -1, :, :]
-                fov = 1 - fog
-
-                first = decentralize_view(first,  self.position, (11, 11))
-                second = decentralize_view(second, position, (11, 11))
-                fov = decentralize_view(fov,    position, (11, 11))
-
-                if p.memory_method == 'forgetting':
-                    merged = merge_views(
-                        first, second, fov, forgetfullness=forgetfulness)
-                elif p.memory_method == 'counting':
-                    merged = merge_views_counting(first, second, fov)
-
-                # Recentralize and safe into memory
-                self.board[sample, layer, :, :] = centralize_view(
-                    merged, position)
-        self.position = position
-
-    def get_view(self, position: list, view_range: int = 0, centralized=False) -> np.array:
-        """
-        Return a view of the internal global board state
-
-        :param position: The position where the view center should lie
-        :param view_range: The amount of tiles left in each direction.
-            Everything outside will be cropped out if the value is
-            greater then zero.   
-        :param centralized: Center the returned view if True, overwise
-            return an uncentered board.
-
-        :return: The resulting view
-        """
-        batch_size = self.board.shape[0]
-        layers = self.board.shape[1]
-
-        if view_range > 0:
-            fov = 2*view_range + 1
-            bounds = (batch_size, layers, fov, fov)
-        else:
-            bounds = self.board.shape
-
-        if torch.is_tensor(self.board):
-            views = torch.zeros(bounds, device=p.device)
-        else:
-            views = np.zeros(bounds)
-
-        for sample in range(batch_size):
-            for layer in range(layers):
-                #view = centralize_view(self.board[sample, layer, :, :], position, 0)
-                view = self.board[sample, layer, :, :]
-                if view_range > 0:
-                    view = crop_view(view, view_range)
-                if not centralized:
-                    view = decentralize_view(view, position, self.bounds)
-
-                views[sample, layer, :, :] = view
-        return views
-
-    def reset(self) -> None:
-        """
-        Reset the internal representation
-        """
-        self.board = None
-        self.position = None

@@ -1,33 +1,23 @@
 import logging
-from collections import deque
 
-from agents.skynet_agents import SmartRandomAgent, SmartRandomAgentNoBomb
-from logger import Logger
-import random
 from typing import Callable
 
 import numpy as np
 import pommerman
 from pommerman.agents import SimpleAgent
-from pommerman.constants import Item
 import torch
 import sys
 
-import params as p
-from util.data import transform_observation
-from util.rewards import staying_alive_reward, go_down_right_reward, bomb_reward, skynet_reward, woods_close_to_bomb_reward
 from agents.skynet_agents import SmartRandomAgent, SmartRandomAgentNoBomb
 from agents.static_agent import StaticAgent
 from agents.train_agent import TrainAgent
 from agents.simple_agent_cautious_bomb import CautiousAgent
-from data_augmentation import DataAugmentor
 from logger import Logger
 import params as p
-from util.data import transform_observation
-from util.rewards import staying_alive_reward, go_down_right_reward, bomb_reward, skynet_reward
-from replay_buffer import ReplayBuffer
-from pommerman.constants import Action
-from operator import itemgetter
+from util.rewards import staying_alive_reward, bomb_reward, skynet_reward
+from util.replay_buffer import ReplayBuffer
+
+
 class DataGeneratorPommerman:
     def __init__(self, env, augmentors: list=[])-> None:
         """
@@ -143,12 +133,14 @@ class DataGeneratorPommerman:
                 if render and i_episode == 0:
                     env.render()
                 act = env.act(obs)
+                first_act = [i[0] if type(i) == list else i for i in act]
                 for j in range(self.player_agents_n):
-                    act_counts[j][int(act[agent_inds[j]])] += 1
+                    act_counts[j][int(first_act[agent_inds[j]])] += 1
                 nobs, rwd, done, _ = env.step(act)
                 if p.reward_func == "SkynetReward":
                     skynet_rwds = skynet_reward(obs, act, nobs, fifo, agent_inds, skynet_reward_log)
                 for i in range(self.player_agents_n):
+                    agt: TrainAgent = agent_list[agent_inds[i]]
                     if p.reward_func == "SkynetReward":
                         agt_rwd = skynet_rwds[agent_inds[i]]
                     elif p.reward_func == "BombReward":
@@ -168,7 +160,7 @@ class DataGeneratorPommerman:
                     #draw reward for living agents
                     if steps_n == max_steps:
                         done = True
-                        if agent_list[agent_inds[i]].is_alive:
+                        if agt.is_alive:
                             agt_rwd = 0.0
                             logging.info(f"Draw rewarded with {agt_rwd} for each living agent")
                     #death reward
@@ -178,8 +170,12 @@ class DataGeneratorPommerman:
                     if alive[i]:
                         # Build original transition
                         if p.use_memory:
-                            transition = (agent_list[agent_inds[i]].get_memory(), act[agent_inds[i]], agt_rwd * 100, \
-                                          agent_list[agent_inds[i]].get_memory_view(nobs[agent_inds[i]]), done)
+                            agt_obs = agt.get_memory_view()
+                            agt.update_memory(nobs[agent_inds[i]])
+                            agt_nobs = agt.get_memory_view()
+                            act_no_msg = act[agent_inds[i]][0] if p.communicate else act[agent_inds[i]]
+                            transition = (agt_obs, act_no_msg, agt_rwd * 100, \
+                                          agt_nobs, done)
                         else:
                             transition = (transformer(obs[agent_inds[i]]), act[agent_inds[i]], agt_rwd*100, \
                                           transformer(nobs[agent_inds[i]]), done)

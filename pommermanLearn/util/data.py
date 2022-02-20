@@ -1,3 +1,4 @@
+import matplotlib.testing.compare
 import numpy as np
 from pommerman.constants import Item
 import torch
@@ -17,29 +18,8 @@ def transform_observation(obs: dict, p_obs: bool=False, centralized: bool=False,
         raise ValueError("Invalid value combination (p_obs=True and centralized=False)")
 
     board = obs['board']
-    view_type=np.float64
-    views = [                                                    # Index
-        np.isin(board, Item.Passage.value).astype(view_type),    # 0
-        np.isin(board, Item.Rigid.value).astype(view_type),      # 1
-        np.isin(board, Item.Wood.value).astype(view_type),       # 2
-        np.isin(board, Item.Bomb.value).astype(view_type),       # 3
-        np.isin(board, Item.Flames.value).astype(view_type),     # 4
-        np.isin(board, Item.ExtraBomb.value).astype(view_type),  # 5
-        np.isin(board, Item.IncrRange.value).astype(view_type),  # 6
-        np.isin(board, Item.Kick.value).astype(view_type),       # 7
-        np.isin(board, Item.Agent0.value).astype(view_type),     # 8
-        np.isin(board, Item.Agent1.value).astype(view_type),     # 9
-        np.isin(board, Item.Agent2.value).astype(view_type),     # 10
-        np.isin(board, Item.Agent3.value).astype(view_type),     # 11
-        np.array(obs['flame_life']).astype(view_type),           # 12
-        np.array(obs['bomb_life']).astype(view_type)             # 13
-    ]
-    if centralized and p_obs:
-        views.append(np.isin(board, Item.Fog.value).astype(np.uint8)) # 14
-    
-    if centralized and not p_obs:
-        views.append(np.zeros(board.shape))
-    
+    views = create_bitmaps(board, centralized, obs, p_obs, crop_fog)
+
     transformed = []
     for view in views:
         if centralized or p_obs:
@@ -49,10 +29,43 @@ def transform_observation(obs: dict, p_obs: bool=False, centralized: bool=False,
             view = crop_view(view, view_range=4)
 
         transformed.append(view)
-
     transformed = np.stack(transformed, axis=-1)
     transformed = np.moveaxis(transformed, -1, 0)  # move channel dimension to front (pytorch expects this)
     return transformed
+
+
+def create_bitmaps(board, centralized, obs, p_obs, crop_fog):
+    '''
+    function to create a bitmap for each possible board value
+    :param board: the normal board representation
+    :param centralized: whether the model expects centralized boards (e.g., 17x17)
+    :param obs: observation containing additional maps flame_life and bomb_life
+    :param p_obs: whether the environment is partially observable
+    :return: the bitmaps representing our board
+    '''
+    view_type = np.float64
+    views = [  # Index
+        np.isin(board, Item.Passage.value).astype(view_type),  # 0
+        np.isin(board, Item.Rigid.value).astype(view_type),  # 1
+        np.isin(board, Item.Wood.value).astype(view_type),  # 2
+        np.isin(board, Item.Bomb.value).astype(view_type),  # 3
+        np.isin(board, Item.Flames.value).astype(view_type),  # 4
+        np.isin(board, Item.ExtraBomb.value).astype(view_type),  # 5
+        np.isin(board, Item.IncrRange.value).astype(view_type),  # 6
+        np.isin(board, Item.Kick.value).astype(view_type),  # 7
+        np.isin(board, Item.Agent0.value).astype(view_type),  # 8
+        np.isin(board, Item.Agent1.value).astype(view_type),  # 9
+        np.isin(board, Item.Agent2.value).astype(view_type),  # 10
+        np.isin(board, Item.Agent3.value).astype(view_type),  # 11
+        np.array(obs['flame_life']).astype(view_type),  # 12
+        np.array(obs['bomb_life']).astype(view_type)  # 13
+    ]
+    if p_obs and not crop_fog:
+        views.append(np.isin(board, Item.Fog.value).astype(np.uint8))  # 14
+    if (centralized and not p_obs) or crop_fog:
+        views.append(np.zeros(board.shape))
+    return views
+
 
 def centralize_view(view: torch.tensor, position: np.array, padding: int=0):
     """
@@ -225,6 +238,28 @@ def merge_views_life(first: np.array, second: np.array, fov: np.array):
     merged = second * fov + first_dec * fog
     return merged
 
+
+def merge_views_unique(first: np.array, second: np.array, fov: np.array, layer_alive:bool, forgetfullness: float=0.0):
+    """
+        Merge the first and second view in the field of view and if a value is non-zero in
+        the fov, ignore the second view (since the value is unique)
+        also, set all values to 0 if respective agent is dead
+
+        :param first: A numpy array respresenting the first view
+        :param second: A numpy array respresenting the second view
+        :param fov: A binary numpy array respresenting the field of view
+
+        :return: second in area of fov and first decreased by 1 for the remainder
+        """
+    assert first.shape == second.shape == fov.shape, f"Shapes of planes to merge must match exactly, but first is {first.shape}, second is {second.shape} and fov is {fov.shape}"
+    if not layer_alive:
+        return 0*first #set layer to all zero since agent is not alive
+    not_seen = not np.any(first)
+    remembrance=1-forgetfullness
+    fog = 1-fov
+
+    merged = second*fov + first*fog*remembrance*not_seen
+    return merged
 
 def merge_views_counting(first: np.array, second: np.array, fov: np.array):
     """
