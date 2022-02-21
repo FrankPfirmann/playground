@@ -24,6 +24,9 @@ episodes = 50
 model_dir1 = './data/tensorboard/20220127T193625/549_1'
 model_dir2 = './data/tensorboard/20220127T193625/549_2'
 
+model_dir1 = './data/tensorboard/20220218T130530/499_1'
+model_dir2 = './data/tensorboard/20220218T130530/499_2'
+
 
 render = False
 # render = True
@@ -62,7 +65,7 @@ else:
         TrainAgent(policy2),
     ]
 
-env = pommerman.make('PommeTeamCompetition-v0', agent_list)
+env = pommerman.make('PommeRadioCompetition-v2', agent_list)
 
 wins = 0
 ties = 0

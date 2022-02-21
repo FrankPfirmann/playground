@@ -252,8 +252,14 @@ class DataGeneratorPommerman:
                     env.render()
                 act = env.act(obs)
                 for j in range(self.player_agents_n):
-                    act_counts[j][int(act[agent_inds[j]])] += 1
+                    if type(act[agent_inds[j]]) == int:
+                        act[agent_inds[j]] = [act[agent_inds[j]]] + [0, 0]
+                    act_counts[j][int(act[agent_inds[j]][0])] += 1
                 nobs, rwd, done, _ = env.step(act)
+
+                for f in range(self.player_agents_n):
+                    act[agent_inds[f]] = act[agent_inds[f]][0]
+
                 if p.reward_func == "SkynetReward":
                     skynet_rwds = skynet_reward(obs, act, nobs, fifo, agent_inds, skynet_reward_log)
 

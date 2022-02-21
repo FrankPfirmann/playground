@@ -7,6 +7,7 @@ import torch.nn.functional as F
 from torch.optim import Adam
 
 from action_prune import get_filtered_actions
+from message_util import get_message
 from models import Pommer_Q
 import params as p
 
@@ -47,6 +48,7 @@ class DQN(object):
         def policy(obs):
             # get valid actions according to action filter and transform to be able to filter tensor
             valid_actions = get_filtered_actions(obs)
+            message = get_message(obs)
             valid_actions_transformed = []
             for i in range(6):
                 valid_actions_transformed += [1] if i in valid_actions else [float("NaN")]
@@ -67,7 +69,7 @@ class DQN(object):
                     action = torch.tensor([random.choice(valid_actions)])
             else:
                 action = torch.nan_to_num(q_values, nan=-float('inf')).max(1)[1]
-            return action
+            return [action] + message
         return policy
 
     def set_train(self, t):
@@ -101,7 +103,7 @@ class DQN(object):
         loss = F.mse_loss(q_target, q)
         if p.prioritized_replay:
             loss = F.mse_loss(q_target, q, reduction='none')
-            weights = torch.tensor(weights) 
+            weights = torch.tensor(weights).to(self.device)
             loss = torch.mean(weights * loss)
         self.q_optim.zero_grad()
         loss.backward()
