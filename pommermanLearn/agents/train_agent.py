@@ -180,3 +180,17 @@ class TrainAgent(agents.BaseAgent):
         sub = tuple(map(lambda i, j: i - j, t1, t2))
         return self.pos_change[sub]
 
+    def reset_agent(self):
+        '''
+        reset agent to initial state (only needed in tournament)
+        '''
+        self.init = True
+        self.prev_pos = None
+        self.teammate_pos = None
+        self.enemy_ids = None
+        # bit signaling which agents position should be transmitted
+        self.transmit_first = True
+        self.memory.reset()
+
+    def episode_end(self, reward):
+        self.reset_agent()
