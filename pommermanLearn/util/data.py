@@ -254,7 +254,7 @@ def merge_views_unique(first: np.array, second: np.array, fov: np.array, layer_a
     assert first.shape == second.shape == fov.shape, f"Shapes of planes to merge must match exactly, but first is {first.shape}, second is {second.shape} and fov is {fov.shape}"
     if not layer_alive:
         return 0*first #set layer to all zero since agent is not alive
-    not_seen = not np.any(first)
+    not_seen = not np.any(second)
     remembrance=1-forgetfullness
     fog = 1-fov
 
