@@ -169,7 +169,7 @@ class TrainAgent(agents.BaseAgent):
             act = self.policy(self.transformer(obs), valid_actions)
         act = int(act.detach().cpu().numpy()[0])
         if len(self.act_queue) == 4:
-            if self.act_queue[0] == self.act_queue[2] and self.act_queue[1] == self.act_queue[3]:
+            if self.act_queue[0] == self.act_queue[2] and self.act_queue[1] == self.act_queue[3] and len(valid_actions) != 0:
                 act = random.choice(valid_actions)
             self.act_queue.pop(0)
         self.act_queue.append(act)
