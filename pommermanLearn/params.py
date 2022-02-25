@@ -40,7 +40,7 @@ reward_func = 'SkynetReward' #SkynetReward, BombReward
 
 #models.py
 memory_method = 'forgetting' # one of 'counting', 'forgetting'
-forgetfullness=0.05
+forgetfullness=0.01
 
 def validate():
     if use_memory: assert p_observable and not crop_fog
