@@ -1,3 +1,4 @@
+from datetime import datetime
 import torch
 
 # main.py
@@ -16,6 +17,7 @@ double_q = True
 prioritized_replay = True
 beta = 0 # determines how replays should be weighted (beta==0 --> all weights are 1, beta==1 --> influence of replays is fully normalized)
 device = torch.device("cpu") if not torch.cuda.is_available() else torch.device("cuda")
+run_name = datetime.now().strftime("%Y%m%dT%H%M%S")
 
 #train_agent.py
 communicate=True

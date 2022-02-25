@@ -93,9 +93,8 @@ def train_dqn(dqn1=None, dqn2=None, num_iterations=p.num_iterations, episodes_pe
     if mean_run:
         results_dict = init_result_dict(num_iterations)
     else:
-        run_name = datetime.now().strftime("%Y%m%dT%H%M%S")
-        log_dir = os.path.join("./data/tensorboard/", run_name)
-        logging.info(f"Staring run {run_name}")
+        log_dir = os.path.join("./data/tensorboard/", p.run_name)
+        logging.info(f"Staring run {p.run_name}")
         writer = SummaryWriter(log_dir=log_dir)
     explo = p.exploration_noise
     # training loop
@@ -214,14 +213,20 @@ def main(args):
                         help=f"Minimum loglevel to display. One of {[name for name in logging._nameToLevel]}")
     parser.add_argument('-i', '--iterations', type=int, dest="iterations", default=p.num_iterations,
                         help=f"Number of iterations the model will be trained")
+    parser.add_argument('-e', '--episodes', type=int, dest="episodes", default=p.episodes_per_iter,
+                        help=f"Number of episodes played per iteration")
+    parser.add_argument('-n', '--name', type=str, dest="name", default=p.run_name,
+                        help=f"Name of the run")
 
     args = parser.parse_args(args[1:])
     setup_logger(log_level=logging.getLevelName(args.loglevel))
 
-    p.num_iterations = args.iterations
+    p.num_iterations    = args.iterations
+    p.episodes_per_iter = args.episodes
+    p.run_name          = args.name
     if p.seed != -1:
         set_all_seeds()
-    do_mean_run(1, 100)
+    #do_mean_run(1, 100)
     p.validate()
     p.num_iterations=args.iterations
 
@@ -239,9 +244,8 @@ def do_mean_run(mean_run_n, mean_num_iterations):
         _, _, res = train_dqn(num_iterations=mean_num_iterations, enemy='static:0', augmentors=[], mean_run=True)
         for key in mean_dict.keys():
             mean_dict[key] += res[key] / mean_run_n
-    run_name = datetime.now().strftime("%Y%m%dT%H%M%S")
-    log_dir = os.path.join("./data/tensorboard/mean/", run_name)
-    logging.info(f"Writing mean run {run_name}")
+    log_dir = os.path.join("./data/tensorboard/mean/", p.run_name)
+    logging.info(f"Writing mean run {p.run_name}")
     writer = SummaryWriter(log_dir=log_dir)
     for i in range(0, mean_num_iterations):
         writer.add_scalar('Avg. Loss/train', mean_dict["loss"][i], i)
