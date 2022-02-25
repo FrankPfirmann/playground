@@ -26,6 +26,7 @@ class DockerAgent(DockerAgentRunner):
         q_target.to(torch.device(device))
         dqn = DQN(q, q_target, p.exploration_noise, device=torch.device(device), dq=p.double_q, support=support)
 
+        transformer = q.get_transformer()
         self._agent=TrainAgent(policy=dqn.get_policy(), transformer=transformer, is_train=False)
 
     def init_agent(self, id, game_type):
