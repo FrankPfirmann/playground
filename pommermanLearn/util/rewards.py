@@ -1,3 +1,5 @@
+import logging
+
 import numpy as np
 
 from pommerman import constants
@@ -58,7 +60,7 @@ def bomb_reward(nobs, act, agent_ind):
     return rwd
 
 
-def skynet_reward(obs, act, nobs, fifo, agent_inds, log):
+def skynet_reward(obs, act, nobs, fifo, agent_inds, log, done, bomb_tracker):
     """
     Skynet reward function rewarding enemy deaths, powerup pickups and stepping on blocks not in FIFO
     :param obs: previous observation
@@ -66,18 +68,24 @@ def skynet_reward(obs, act, nobs, fifo, agent_inds, log):
     :param fifo: 121 (11x11) cell queue
     :return:
     """
+
+
     # calculate rewards for player agents, rest are zero
     r = [0.0] * len(obs)
     for i in range(len(obs)):
         if i not in agent_inds:
             continue
         log_ind = 0 if i <= 1 else 1
+        own_id = ((obs[i]['teammate'].value - 8) % 4)+ 10
+        enemy_1 = ((obs[i]['teammate'].value - 9) % 4)+ 10
+        enemy_2 = ((obs[i]['teammate'].value - 7) % 4)+ 10
+        alive_agents = nobs[i]['alive']
         teammate_ind = i + 2 if log_ind == 0 else i - 2
-        n_enemies_prev = 0
+        enemies_prev = []
         alive_prev = obs[i]['alive']
         for e in obs[i]['enemies']:
             if e.value in alive_prev:
-                n_enemies_prev += 1
+                enemies_prev.append(e.value)
 
         prev_n_teammate = 1 if obs[i]['teammate'].value in alive_prev else 0
         prev_can_kick = obs[i]['can_kick']
@@ -85,36 +93,68 @@ def skynet_reward(obs, act, nobs, fifo, agent_inds, log):
         prev_n_blast = obs[i]['blast_strength']
 
         cur_alive = nobs[i]['alive']
-        n_enemy_cur = 0
+        enemy_cur = []
         for e in nobs[i]['enemies']:
             if e.value in cur_alive:
-                n_enemy_cur += 1
-
+                enemy_cur.append(e.value)
+        dead_enemies = [item for item in enemies_prev if item not in enemy_cur]
         cur_n_teammate = 1 if nobs[i]['teammate'].value in cur_alive else 0
         cur_can_kick = nobs[i]['can_kick']
         cur_n_ammo = nobs[i]['ammo']
         cur_n_blast = nobs[i]['blast_strength']
         cur_position = nobs[i]['position']
-        if n_enemies_prev - n_enemy_cur > 0:
-            r[i] += (n_enemies_prev - n_enemy_cur) * 0.5
-            log[log_ind][0] += (n_enemies_prev - n_enemy_cur) * 0.5
+        killed = False
+        died = False
+        if len(dead_enemies) > 0:
+            for enemy in dead_enemies:
+                tracker_items = bomb_tracker.get_killers(obs, nobs)
+                for kill in tracker_items:
+                    if kill['killed_agent'] not in nobs[i]['alive'] and i in kill['killers']:
+                        kill_rwd = 0.5
+                        killed = True
+                        r[i] += kill_rwd
+                        logging.info(f"Kill by agent {i} rewarded with {kill_rwd}")
+                        log[log_ind][0] += kill_rwd
+
+        if own_id in obs[i]['alive'] and own_id not in nobs[i]['alive']:
+            died = True
+            death_rwd = -0.5
+            r[i] += death_rwd
+            logging.info(f"Death of agent {i} rewarded with {death_rwd}")
+            log[log_ind][4] += death_rwd
+
+        if done:
+            if killed and (own_id in alive_agents or nobs[i]['teammate'].value in alive_agents) \
+                    and not(enemy_1 in alive_agents or enemy_2 in alive_agents):
+                win_rwd = 0.5
+                r[i] += win_rwd
+                logging.info(f"Winning blow rewarded by an extra {win_rwd} for agent {i}")
+                log[log_ind][3] += win_rwd
+            elif died and (enemy_1 in alive_agents or enemy_2 in alive_agents) \
+                    and not (own_id in alive_agents or nobs[i]['teammate'].value in alive_agents):
+                loss_rwd = -0.5
+                r[i] += loss_rwd
+                print(obs[i]['step_count'])
+                logging.info(f"Losing death rewarded by an extra with {loss_rwd} for agent {i}")
+                log[log_ind][3] += loss_rwd
         if prev_n_teammate - cur_n_teammate > 0:
-            r[i] -= (prev_n_teammate-cur_n_teammate)*0.5
-            log[log_ind][4] -= (prev_n_teammate-cur_n_teammate)*0.5
+            r[i] -= (prev_n_teammate-cur_n_teammate)*0.0
+            log[log_ind][4] -= (prev_n_teammate-cur_n_teammate)*0.0
         if not prev_can_kick and cur_can_kick:
-            r[i] += 0.02
-            log[log_ind][1] += 0.02
+            r[i] += 0.05
+            log[log_ind][1] += 0.05
         if cur_n_ammo - prev_n_ammo > 0 and obs[i]['board'][cur_position[0]][cur_position[1]] == Item.ExtraBomb.value:
-            r[i] += 0.01
-            log[log_ind][1] += 0.01
+            r[i] += 0.05
+            log[log_ind][1] += 0.05
         if cur_n_blast - prev_n_blast > 0:
-            r[i] += 0.01
-            log[log_ind][1] += 0.01
+            r[i] += 0.05
+            log[log_ind][1] += 0.05
         if cur_position not in fifo[i]:
-            r[i] += 0.001
-            log[log_ind][2] += 0.001
-        if len(fifo[i]) == 121:
-            fifo[i].pop()
+            r[i] += 0.0003
+            log[log_ind][2] += 0.0003
+        if len(fifo[i]) == 64:
+            fifo[i].pop(0)
+
         fifo[i].append(cur_position)
     return r
 
@@ -199,5 +239,5 @@ def woods_close_to_bomb_reward(obs, bomb_pos, blast_strength, agent_ids):
             woods_in_range += 1
             break
     # for each wood close to bomb reward x
-    reward = (0.01 * woods_in_range) + (0.3 * enemies_in_range)
+    reward = (0.01 * woods_in_range) + (0.05 * enemies_in_range)
     return reward

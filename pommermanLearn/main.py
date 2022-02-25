@@ -2,7 +2,7 @@
 # solve error #15
 import os
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
-#os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 import argparse
 import logging
 import random
@@ -68,21 +68,21 @@ def train_dqn(dqn1=None, dqn2=None, num_iterations=p.num_iterations, episodes_pe
     q_target = PommerQEmbeddingRNN(embedding_model)
     q = PommerQEmbeddingRNN(embedding_model)
     """
-
+    support = torch.linspace(p.v_min, p.v_max, p.atom_size).to(p.device)
     # initialize DQN and data generator
     if dqn1 == None:
-        q1 = Pommer_Q(p.p_observable or p.centralize_planes, transform_func)
-        q_target1 = Pommer_Q(p.p_observable or p.centralize_planes, transform_func)
+        q1 = Pommer_Q(p.p_observable or p.centralize_planes, transform_func, support=support)
+        q_target1 = Pommer_Q(p.p_observable or p.centralize_planes, transform_func, support=support)
         q1.to(device)
         q_target1.to(device)
-        dqn1 = DQN(q1, q_target1, p.exploration_noise, dq=p.double_q, device=p.device)
+        dqn1 = DQN(q1, q_target1, p.exploration_noise, dq=p.double_q, device=p.device, support=support)
 
     if dqn2 == None:
-        q2 = Pommer_Q(p.p_observable, transform_func)
-        q_target2 = Pommer_Q(p.p_observable, transform_func)
+        q2 = Pommer_Q(p.p_observable, transform_func, support=support)
+        q_target2 = Pommer_Q(p.p_observable, transform_func, support=support)
         q2.to(device)
         q_target2.to(device)
-        dqn2 = DQN(q2, q_target2, p.exploration_noise, dq=p.double_q, device=p.device)
+        dqn2 = DQN(q2, q_target2, p.exploration_noise, dq=p.double_q, device=p.device, support=support)
 
     data_generator = DataGeneratorPommerman(
         p.env,
@@ -93,6 +93,7 @@ def train_dqn(dqn1=None, dqn2=None, num_iterations=p.num_iterations, episodes_pe
     if mean_run:
         results_dict = init_result_dict(num_iterations)
     else:
+        results_dict =None
         run_name = datetime.now().strftime("%Y%m%dT%H%M%S")
         log_dir = os.path.join("./data/tensorboard/", run_name)
         logging.info(f"Staring run {run_name}")
@@ -125,14 +126,16 @@ def train_dqn(dqn1=None, dqn2=None, num_iterations=p.num_iterations, episodes_pe
         # increase backplay range (stop at
         for _ in range(p.gradient_steps_per_iter):
             batch1 = data_generator.get_batch_buffer(p.batch_size, 0)
-            loss, indexes, td_error = dqn1.train(batch1)
+            batch1_n = data_generator.get_batch_buffer_from_idx(batch1[6], 0)
+            loss, indexes, td_error = dqn1.train(batch1, batch1_n)
             if p.prioritized_replay:
                 data_generator.update_priorities(indexes, td_error, 0)
             total_loss += loss
 
         for _ in range(p.gradient_steps_per_iter):
             batch2 = data_generator.get_batch_buffer(p.batch_size, 1)
-            loss, indexes, td_error = dqn2.train(batch2)
+            batch2_n = data_generator.get_batch_buffer_from_idx(batch2[6], 1)
+            loss, indexes, td_error = dqn2.train(batch2, batch2_n)
             if p.prioritized_replay:
                 data_generator.update_priorities(indexes, td_error, 1)
                 total_loss += loss
@@ -184,7 +187,7 @@ def train_dqn(dqn1=None, dqn2=None, num_iterations=p.num_iterations, episodes_pe
                 torch.save(dqn2.q_network.state_dict(), model_save_path + '_2')
                 logging.info("Saved model to: " + model_save_path)
             data_generator.generate(p.episodes_per_eval, policy1, policy2, enemy, dqn1.q_network.get_transformer(),
-                                    'train', 'train', max_steps, render=p.render_tests)
+                                    'train', 'train', max_steps, render=p.render_tests, test=True)
             dqn1.set_train(True)
             dqn2.set_train(True)
             logging.debug(f"Test finished after {test_stopwatch.stop()}s")
@@ -218,17 +221,35 @@ def main(args):
     args = parser.parse_args(args[1:])
     setup_logger(log_level=logging.getLevelName(args.loglevel))
 
+    support = torch.linspace(p.v_min, p.v_max, p.atom_size).to(p.device)
+    q1 = Pommer_Q(p.p_observable or p.centralize_planes, None, support=support)
+    q_target1 = Pommer_Q(p.p_observable or p.centralize_planes, None, support=support)
+    q1.to(p.device)
+    q_target1.to(p.device)
+
+    model_dir = "data/tensorboard/long/20220225T180308/149_1"
+    q1.load_state_dict(torch.load(model_dir, map_location=p.device))
+    q_target1.load_state_dict(torch.load(model_dir, map_location=p.device))
+    dqn1 = DQN(q1, q_target1, p.exploration_noise, dq=p.double_q, device=p.device, support=support)
+
+
+    model_dir = "data/tensorboard/long/20220225T180308/149_2"
+    q2 = Pommer_Q(p.p_observable or p.centralize_planes, None, support=support)
+    q_target2 = Pommer_Q(p.p_observable or p.centralize_planes, None, support=support)
+    q2.to(p.device)
+    q_target2.to(p.device)
+
+    q2.load_state_dict(torch.load(model_dir, map_location=p.device))
+    q_target2.load_state_dict(torch.load(model_dir, map_location=p.device))
+    dqn2= DQN(q2, q_target2, p.exploration_noise, dq=p.double_q, device=p.device, support=support)
+
     p.num_iterations = args.iterations
     if p.seed != -1:
         set_all_seeds()
-    do_mean_run(1, 100)
     p.validate()
     p.num_iterations=args.iterations
 
-    train_dqn(num_iterations=2000, enemy='smart_random', augmentors=[])
-    p.gradient_steps_per_iter = 200
-    p.batch_size = 32
-    train_dqn(num_iterations=2000, enemy='smart_random', augmentors=[DataAugmentor_v1()])
+    train_dqn(dqn1=dqn1, dqn2=dqn2, num_iterations=520, enemy='smart_random_no_bomb', augmentors=[])
 
     # dqn1, dqn2 = train_dqn(dqn1=dqn1, dqn2=dqn2, num_iterations=10000, enemy='smart_random_no_bomb', augmentors=[])
 

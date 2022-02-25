@@ -31,7 +31,7 @@ def init_weights(m):
 
 
 class Pommer_Q(nn.Module):
-    def __init__(self, p_central, board_transform_func):
+    def __init__(self, p_central, board_transform_func, support=None):
         super(Pommer_Q, self).__init__()
         self.conv_kernel_size = 3
         self.conv_kernel_stride = 1
@@ -44,26 +44,34 @@ class Pommer_Q(nn.Module):
         self.linear_out_dim = 32
         self.combined_out_dim = 128
         self.memory = None
+        self.support = support
+        self.atom_size = p.atom_size
         self.p_obs = p.p_observable
         self.noisy1v = NoisyLinear(self.combined_out_dim, 128)
-        self.noisy2v = NoisyLinear(128, 1)
+        #self.noisy2v = NoisyLinear(128, 1)
+        self.noisy2v = NoisyLinear(128, self.atom_size)
         self.noisy1a = NoisyLinear(self.combined_out_dim, 128)
-        self.noisy2a = NoisyLinear(128, 6)
+        self.noisy2a = NoisyLinear(128, 6 * self.atom_size)
+        #self.noisy2a = NoisyLinear(128, 6)
         self.conv = nn.Sequential(
             nn.Conv2d(in_channels=self.planes_num, out_channels=64, kernel_size=(3, 3), stride=(1, 1)), \
+            nn.ReLU(inplace=True),
             nn.Conv2d(in_channels=64, out_channels=64, kernel_size=(3, 3), stride=(1, 1)),
+            nn.ReLU(inplace=True),
             nn.Conv2d(in_channels=64, out_channels=64, kernel_size=(3, 3), stride=(1, 1)),
+            nn.ReLU(inplace=True),
             nn.Conv2d(in_channels=64, out_channels=64, kernel_size=(3, 3), stride=(1, 1)),
+            nn.ReLU(inplace=True),
             nn.Flatten()
         )
         self.board_transform_func = board_transform_func
 
         self.linear = nn.Sequential(
-            nn.Linear(in_features=6, out_features=self.linear_out_dim),
+            nn.Linear(in_features=14, out_features=self.linear_out_dim),
             nn.ReLU()
         )
         self.combined = nn.Sequential(
-            nn.LazyLinear(out_features=self.combined_out_dim),
+            nn.Linear(in_features=608, out_features=self.combined_out_dim),
             nn.ReLU()
 
         )
@@ -79,7 +87,11 @@ class Pommer_Q(nn.Module):
         )
 
     def forward(self, obs):
+        distribution = self.get_distribution(obs)
+        q_values = torch.sum(distribution * self.support, dim=2)
+        return q_values
 
+    def get_distribution(self, obs):
         x1 = obs[0]  # Board
         x2 = obs[1]  # Step, Position
         x1 = self.conv(x1)
@@ -89,8 +101,13 @@ class Pommer_Q(nn.Module):
 
         values = self.value_stream(combined_out)
         advantages = self.advantage_stream(combined_out)
-        qvalues = values + (advantages - torch.mean(advantages))
-        return qvalues
+        values_view = values.view(-1, 1, self.atom_size)
+        advantages_view = advantages.view(-1, 6, self.atom_size)
+        q_atoms = values_view + advantages_view - advantages_view.mean(dim=1, keepdim=True)
+        dist = F.softmax(q_atoms, dim=-1)
+        dist = dist.clamp(min=1e-3)
+        return dist
+
 
     def reset_noise(self):
         self.noisy1v.reset_noise()
@@ -108,6 +125,11 @@ class Pommer_Q(nn.Module):
         value in the ``forward()`` function.
         """
         def transformer(obs: dict, pre_transformed=None) -> list:
+            enemy_dead= [0 if e.value in obs['alive'] else 1 for e in obs['enemies'][:2]]
+            teammate_v = obs['teammate'].value
+            self_v = ((teammate_v -8) % 4)+ 10
+            teammate_dead = 0 if teammate_v in obs['alive'] else 1
+            self_dead = 0 if self_v in obs['alive'] else 1
             board = pre_transformed if pre_transformed is not None else self.board_transform_func(obs)
             return [
                 board,
@@ -116,7 +138,11 @@ class Pommer_Q(nn.Module):
                     np.array(list(obs['position'])),
                     np.array(obs['ammo']),
                     np.array(obs['can_kick']),
-                    np.array(obs['blast_strength'])
+                    np.array(obs['blast_strength']),
+                    np.array(enemy_dead),
+                    np.array(teammate_dead),
+                    np.array(self_dead),
+                    np.array([float(i == self_v - 10) for i in range(0, 4)])
                 )))]
 
         return transformer

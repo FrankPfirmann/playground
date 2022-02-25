@@ -4,24 +4,24 @@ import torch
 num_iterations = 1000
 episodes_per_iter = 1
 gradient_steps_per_iter = 100
-batch_size = 128
-episodes_per_eval = 30
-intermediate_test = 100
-centralize_planes = True
-render_tests = False
+batch_size = 2
+episodes_per_eval = 1
+intermediate_test = 1
+centralize_planes = False
+render_tests = True
 env = 'PommeRadio-v2'  # PommeFFACompetition-v0 or OneVsOne-v0 or PommeTeamCompetition-v0
 p_observable = True
-crop_fog=False
+crop_fog = False
 double_q = True
 prioritized_replay = True
-beta = 0 # determines how replays should be weighted (beta==0 --> all weights are 1, beta==1 --> influence of replays is fully normalized)
+beta = 0.7 # determines how replays should be weighted (beta==0 --> all weights are 1, beta==1 --> influence of replays is fully normalized)
 device = torch.device("cpu") if not torch.cuda.is_available() else torch.device("cuda")
 
 #train_agent.py
 communicate=True
 use_memory=True
 #dqn.py
-seed = 1
+seed = 123
 
 gamma = 0.99
 tau = 0.005
@@ -38,8 +38,16 @@ reward_func = 'SkynetReward' #SkynetReward, BombReward
 
 #models.py
 memory_method = 'forgetting' # one of 'counting', 'forgetting'
-forgetfullness=0.05
+forgetfullness=0.01
 
+#categorical DQN
+atom_size = 51
+v_min = -10
+v_max = 10
 def validate():
     if use_memory: assert p_observable and not crop_fog
     if communicate: assert use_memory
+    if use_nstep: assert prioritized_replay #not independently  atm supported due to weird buffer indexing
+#n-step
+use_nstep = True
+nsteps = 12

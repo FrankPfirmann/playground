@@ -1,4 +1,6 @@
 import logging
+import random
+from collections import deque
 
 import params
 from action_prune import get_filtered_actions
@@ -85,6 +87,7 @@ class TrainAgent(agents.BaseAgent):
                                3: (bsize-2, 1)}
         self.communicate = communicate
         self.transformer = transformer
+        self.act_queue = []
 
     def get_memory_view(self):
         '''
@@ -165,6 +168,11 @@ class TrainAgent(agents.BaseAgent):
         else:
             act = self.policy(self.transformer(obs), valid_actions)
         act = int(act.detach().cpu().numpy()[0])
+        if len(self.act_queue) == 4:
+            if self.act_queue[0] == self.act_queue[2] and self.act_queue[1] == self.act_queue[3]:
+                act = random.choice(valid_actions)
+            self.act_queue.pop(0)
+        self.act_queue.append(act)
         if self.next_msg is not None:
             return [act, self.next_msg[0], self.next_msg[1]]
         else:
