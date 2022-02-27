@@ -16,6 +16,7 @@ from logger import Logger
 import params as p
 from util.rewards import staying_alive_reward, bomb_reward, skynet_reward
 from util.replay_buffer import ReplayBuffer
+from util.analytics import Stopwatch
 
 
 class DataGeneratorPommerman:
@@ -108,16 +109,15 @@ class DataGeneratorPommerman:
             following order: list of wins, ties, average reward, action
             counts, average steps
         """
-
-        total_reward = 0.0
-        total_steps = 0.0
         for _ in range(episodes):
             reward, steps, res, ties, act_counts, skynet_reward_log = self.generate_episode(agent1, agent2, policy1, policy2, enemy, transformer, max_steps)
             total_reward += reward
             total_steps += steps
-
         average_reward = total_reward/episodes
         average_steps = total_steps/episodes
+
+        #print(f"{stopwatch.stop()}s for sequential execution")
+
         logging.info(f"Wins: {res}, Ties: {ties}, Avg. Reward: {average_reward}, Avg. Steps: {average_steps}")
         if p.reward_func == "SkynetReward":
             logging.info(
@@ -139,8 +139,6 @@ class DataGeneratorPommerman:
         reward = 0.0
         steps = 0.0
 
-        fifo = [[] for _ in range(self.agents_n)]
-        skynet_reward_log = [[0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0]]
         agent_inds, agent_ids, agent_list = self._init_agent_list(agent1, agent2, policy1, policy2
                                                                     , enemy, transformer, p.set_position)
         env = pommerman.make(self.env, agent_list)
@@ -149,8 +147,10 @@ class DataGeneratorPommerman:
         ep_rwd = 0.0
         alive = [True, True]
         steps_n = 0
-        for i in range(self.agents_n):
-            fifo[i].clear()
+
+        # Needed for skynet rewards
+        self.reward_log = [[0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0]]
+        self.fifo = [[] for _ in range(self.agents_n)]
 
         while not done:
             act = env.act(obs)
@@ -158,36 +158,12 @@ class DataGeneratorPommerman:
             for j in range(self.player_agents_n):
                 act_counts[j][int(first_act[agent_inds[j]])] += 1
             nobs, rwd, done, _ = env.step(act)
-            if p.reward_func == "SkynetReward":
-                skynet_rwds = skynet_reward(obs, act, nobs, fifo, agent_inds, skynet_reward_log)
+            
+            rewards = self.calculate_rewards(obs, act, nobs, rwd, done)
+
             for i in range(self.player_agents_n):
                 agt: TrainAgent = agent_list[agent_inds[i]]
-                if p.reward_func == "SkynetReward":
-                    agt_rwd = skynet_rwds[agent_inds[i]]
-                elif p.reward_func == "BombReward":
-                    agt_rwd = bomb_reward(nobs, act, agent_inds[i])/100
-                else:
-                    agt_rwd = staying_alive_reward(nobs, agent_ids[i])
-                    # woods close to bomb reward
-                # if act[agent_inds[i]] == Action.Bomb.value:
-                #     agent_obs = obs[agent_inds[i]]
-                #     agt_rwd += woods_close_to_bomb_reward(agent_obs, agent_obs['position'], agent_obs['blast_strength'], agent_ids)
-                #only living agent gets winning rewards
-                if done:
-                    winner = np.where(np.array(rwd) == 1)[0] # TODO even dead agents get reward?
-                    if agent_inds[0] in winner:
-                        agt_rwd = 0.5
-                        logging.info(f"Win rewarded with {agt_rwd} for each living agent")
-                #draw reward for living agents
-                if steps_n == max_steps:
-                    done = True
-                    if agt.is_alive:
-                        agt_rwd = 0.0
-                        logging.info(f"Draw rewarded with {agt_rwd} for each living agent")
-                #death reward
-                if alive[i] and agent_ids[i] not in nobs[agent_inds[i]]['alive']:
-                    agt_rwd = -0.5
-                    logging.info(f"Death of agent {agent_inds[i]} rewarded with {agt_rwd}")
+                agt_rwd = rewards[agent_inds[i]]
                 if alive[i]:
                     # Build original transition
                     if p.use_memory:
@@ -232,4 +208,48 @@ class DataGeneratorPommerman:
                 res[1] += 1
 
         env.close()
-        return (reward, steps, res, ties, act_counts, skynet_reward_log)
+        return (reward, steps, res, ties, act_counts, self.reward_log)
+    
+    def calculate_rewards(self, obs: dict, act: list, nobs: dict, env_reward: float, done: bool):
+        rewards = []
+        indices = [i for i in range(self.agents_n)]
+        ids     = [10+i for i in indices]
+
+        for index, id in zip(indices, ids):
+            alive   = id in obs[index]['alive']
+            died    = alive and id not in obs[index]['alive']
+            steps_n = obs[index]['step_count']
+            won     = env_reward[index] == 1
+            agt_rwd = 0.0
+
+            if p.reward_func == "SkynetReward":
+                agt_rwd = skynet_reward(obs, act, nobs, self.fifo, [index], self.reward_log)[index]
+            elif p.reward_func == "BombReward":
+                agt_rwd = bomb_reward(nobs, act, index)/100
+            else:
+                agt_rwd = staying_alive_reward(nobs, id)
+
+            # woods close to bomb reward
+            # if act[agent_inds[i]] == Action.Bomb.value:
+            #     agent_obs = obs[agent_inds[i]]
+            #     agt_rwd += woods_close_to_bomb_reward(agent_obs, agent_obs['position'], agent_obs['blast_strength'], agent_ids)
+            #only living agent gets winning rewards
+            if done:
+                if won:
+                    agt_rwd = 0.5
+                    logging.info(f"Win rewarded with {agt_rwd} for each living agent")
+
+            #draw reward for living agents
+            if steps_n == p.max_steps:
+                done = True
+                if alive:
+                    agt_rwd = 0.0
+                    logging.info(f"Draw rewarded with {agt_rwd} for each living agent")
+
+            # Negative reward if agent died this iteration
+            if died:
+                agt_rwd = -0.5
+                logging.info(f"Death of agent {index} rewarded with {agt_rwd}")
+
+            rewards.append(agt_rwd)
+        return rewards
