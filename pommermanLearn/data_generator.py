@@ -109,6 +109,8 @@ class DataGeneratorPommerman:
             following order: list of wins, ties, average reward, action
             counts, average steps
         """
+        total_reward = 0.0
+        total_steps  = 0.0
         for _ in range(episodes):
             reward, steps, res, ties, act_counts, skynet_reward_log = self.generate_episode(agent1, agent2, policy1, policy2, enemy, transformer, max_steps)
             total_reward += reward
