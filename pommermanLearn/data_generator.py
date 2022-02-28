@@ -145,7 +145,7 @@ class DataGeneratorPommerman:
         obs = env.reset()
         done = False
         ep_rwd = 0.0
-        alive = [True, True]
+        was_alive = [True, True]
         steps_n = 0
 
         # Needed for skynet rewards
@@ -162,24 +162,28 @@ class DataGeneratorPommerman:
             rewards = self.calculate_rewards(obs, act, nobs, rwd, done)
 
             for i in range(self.player_agents_n):
-                agt: TrainAgent = agent_list[agent_inds[i]]
-                agt_rwd = rewards[agent_inds[i]]
-                if alive[i]:
+                agt_id  = agent_ids[i]
+                agt_idx = agent_inds[i]
+                agt     = agent_list[agt_idx]
+                agt_rwd = rewards[agt_idx]
+
+                if was_alive[i]:
                     # Build original transition
                     if p.use_memory:
                         agt_obs = agt.get_memory_view()
-                        agt.update_memory(nobs[agent_inds[i]])
+                        agt.update_memory(nobs[agt_idx])
                         agt_nobs = agt.get_memory_view()
-                        act_no_msg = act[agent_inds[i]][0] if p.communicate else act[agent_inds[i]]
+                        act_no_msg = act[agt_idx][0] if p.communicate else act[agt_idx]
                         transition = (agt_obs, act_no_msg, agt_rwd * 100, \
                                         agt_nobs, done)
                     else:
-                        transition = (transformer(obs[agent_inds[i]]), act[agent_inds[i]], agt_rwd*100, \
-                                        transformer(nobs[agent_inds[i]]), done)
+                        transition = (transformer(obs[agt_idx]), act[agt_idx], agt_rwd*100, \
+                                        transformer(nobs[agt_idx]), done)
                     transitions = [transition]
+
                     # Create new transitions
                     for augmentor in self.augmentors:
-                        transition_augmented = augmentor.augment(obs[agent_inds[i]], act[agent_inds[i]], agt_rwd*100, nobs[agent_inds[i]], not alive)
+                        transition_augmented = augmentor.augment(obs[agt_idx], act[agt_idx], agt_rwd*100, nobs[agt_idx], not was_alive)
                         for t in transition_augmented:
                             transitions.append((transformer(t[0]), t[1], t[2]*100, transformer(t[3]), t[4]))
 
@@ -187,9 +191,9 @@ class DataGeneratorPommerman:
                     for t in transitions:
                         self.replay_buffers[i].add_to_buffer(*t)
 
-                if alive[i]:
+                if was_alive[i]:
                     ep_rwd += agt_rwd
-                alive[i] = agent_ids[i] in nobs[agent_inds[i]]['alive']
+                was_alive[i] = agt_id in nobs[agt_idx]['alive']
             obs = nobs
             steps_n += 1
         reward += ep_rwd
@@ -200,7 +204,7 @@ class DataGeneratorPommerman:
         else:
             k = True
             for i in range(self.player_agents_n):
-                if agent_inds[i] in winner:
+                if agt_idx in winner:
                     res[0] += 1
                     k = False
                     break
