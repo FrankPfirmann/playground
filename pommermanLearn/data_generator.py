@@ -118,8 +118,6 @@ class DataGeneratorPommerman:
         average_reward = total_reward/episodes
         average_steps = total_steps/episodes
 
-        #print(f"{stopwatch.stop()}s for sequential execution")
-
         logging.info(f"Wins: {res}, Ties: {ties}, Avg. Reward: {average_reward}, Avg. Steps: {average_steps}")
         if p.reward_func == "SkynetReward":
             logging.info(
@@ -133,7 +131,18 @@ class DataGeneratorPommerman:
         # TODO: Change the return type to something more readable outside the function
         return (res, ties, average_reward, act_counts, average_steps)
 
-    def generate_episode(self, agent1, agent2, policy1, policy2, enemy, transformer, max_steps):
+    def generate_episode(self, agent1: str, agent2: str, policy1, policy2, enemy: str, transformer, max_steps):
+        """
+        Play an episode in the Pommerman environment and returns the accumulated results.
+
+        :param agent1: String denoting the first player agent
+        :param agent2: String denoting the second player agent
+        :param policy1: `Callable` to get actions from for `agent1`
+        :param policy2: `Callable` to get actions from for `agent2`
+        :param enemy: String denoting both enemy agents
+        :param transformer: `Callable` to transform the environment
+            observation to a suitable format for the policy.
+        """
         res = np.array([0.0] * 2)
         act_counts = [[0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
                     [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]]
@@ -217,6 +226,16 @@ class DataGeneratorPommerman:
         return (reward, steps, res, ties, act_counts, self.reward_log)
     
     def calculate_rewards(self, obs: dict, act: list, nobs: dict, env_reward: float, done: bool):
+        """
+        Calculate the rewards for the given state transitions.
+
+        :param obs: `List` containing observations of each agent
+        :param act: List containing the chosen actions by all agents
+        :param nobs: `List` containing the observation following `obs`
+            for each agent.
+        :param env_reward: Reward given directly from the environment.
+        :param done: `True` if the episode terminated, otherwise `False`
+        """
         rewards = []
         indices = [i for i in range(self.agents_n)]
         ids     = [10+i for i in indices]
