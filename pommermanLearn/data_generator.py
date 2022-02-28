@@ -192,11 +192,8 @@ class DataGeneratorPommerman:
                                         transformer(nobs[agt_idx]), done)
                     transitions = [transition]
 
-                    # Create new transitions
-                    for augmentor in self.augmentors:
-                        transition_augmented = augmentor.augment(obs[agt_idx], act[agt_idx], agt_rwd*100, nobs[agt_idx], not was_alive)
-                        for t in transition_augmented:
-                            transitions.append((transformer(t[0]), t[1], t[2]*100, transformer(t[3]), t[4]))
+                    # Apply data augmentation
+                    transitions.extend(self.augment_transition((obs[agt_idx], act[agt_idx], agt_rwd*100, nobs[agt_idx], not was_alive), transformer))
 
                     # Add everything to the buffer
                     for t in transitions:
@@ -225,6 +222,20 @@ class DataGeneratorPommerman:
         env.close()
         return (reward, steps, res, ties, act_counts, self.reward_log)
     
+    def augment_transition(self, transition: list, transformer: Callable) -> list:
+        """
+        Apply augmentors to the given transition and transform them.
+
+        :param transition: Transition to augment
+        :param transformer: Transformer to apply afterwards
+        """
+        transitions = []
+        for augmentor in self.augmentors:
+            augmented = augmentor.augment(*transition)
+            for a in augmented:
+                transitions.append((transformer(a[0]), a[1], a[2]*100, transformer(a[3]), a[4]))
+        return transitions
+
     def calculate_rewards(self, obs: dict, act: list, nobs: dict, env_reward: float, done: bool):
         """
         Calculate the rewards for the given state transitions.
