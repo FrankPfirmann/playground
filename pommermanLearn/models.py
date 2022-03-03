@@ -109,10 +109,12 @@ class Pommer_Q(nn.Module):
         """
         def transformer(obs: dict, pre_transformed=None) -> list:
             board = pre_transformed if pre_transformed is not None else self.board_transform_func(obs)
+            step_count = obs['step_count']/p.max_steps if p.normalize_steps else obs['step_count']
+            
             return [
                 board,
                 np.array(np.hstack((
-                    np.array(obs['step_count']),
+                    step_count,
                     np.array(list(obs['position'])),
                     np.array(obs['ammo']),
                     np.array(obs['can_kick']),

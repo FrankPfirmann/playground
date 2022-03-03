@@ -22,6 +22,7 @@ run_name = datetime.now().strftime("%Y%m%dT%H%M%S")
 #train_agent.py
 communicate=True
 use_memory=True
+
 #dqn.py
 seed = 1
 
@@ -32,6 +33,7 @@ lr_q = 0.0003
 exploration_noise = 0.0
 exploration_dropoff = 0.01
 explortation_min = 0.0
+
 #data_generator.py
 set_position=False
 replay_size = 2**16 # must be a power of 2 to be compatible with prioritized replay
@@ -41,6 +43,7 @@ reward_func = 'SkynetReward' #SkynetReward, BombReward
 #models.py
 memory_method = 'forgetting' # one of 'counting', 'forgetting'
 forgetfullness=0.01
+normalize_steps=False
 
 def validate():
     if use_memory: assert p_observable and not crop_fog
