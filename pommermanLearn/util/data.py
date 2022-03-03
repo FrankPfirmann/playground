@@ -1,4 +1,3 @@
-import matplotlib.testing.compare
 import numpy as np
 from pommerman.constants import Item
 import torch

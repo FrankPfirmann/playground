@@ -11,8 +11,8 @@ class DockerAgent(DockerAgentRunner):
     An agent that exposes a REST API for usage in a docker container.
     """
     def __init__(self):
-        #model_dir="./data/models/20220210T204437-149_1" # Agent 1
-        model_dir="./data/models/20220210T204437-149_2" # Agent 2
+        model_dir="./data/models/269_1" # Agent 1
+        #model_dir="./data/models/269_2" # Agent 2
 
         support = torch.linspace(p.v_min, p.v_max, p.atom_size).to(p.device)
         #device = torch.device("cpu") if not torch.cuda.is_available() else torch.device("cuda")
