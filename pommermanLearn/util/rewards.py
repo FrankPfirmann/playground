@@ -5,7 +5,7 @@ import numpy as np
 from pommerman import constants
 from pommerman.constants import Item
 from util.data import calc_dist
-
+import params as p
 
 def staying_alive_reward(nobs, agent_id):
     """
@@ -109,16 +109,22 @@ def skynet_reward(obs, act, nobs, fifo, agent_inds, log, done, bomb_tracker):
             for enemy in dead_enemies:
                 tracker_items = bomb_tracker.get_killers(obs, nobs)
                 for kill in tracker_items:
-                    if kill['killed_agent'] not in nobs[i]['alive'] and i in kill['killers']:
-                        kill_rwd = 0.5
-                        killed = True
-                        r[i] += kill_rwd
-                        logging.info(f"Kill by agent {i} rewarded with {kill_rwd}")
-                        log[log_ind][0] += kill_rwd
+                    if kill['killed_agent'] + 10 not in nobs[i]['alive'] and i in kill['killers']:
+                        if kill['killed_agent'] + 10 == obs[i]['teammate'].value:
+                            teammate_rwd = p.teamkill_rwd
+                            r[i] += teammate_rwd
+                            logging.info(f"Teamkill by agent {i} rewarded with {teammate_rwd}")
+                            log[log_ind][0] += teammate_rwd
+                        else:
+                            kill_rwd = p.kill_rwd
+                            killed = True
+                            r[i] += kill_rwd
+                            logging.info(f"Kill by agent {i} rewarded with {kill_rwd}")
+                            log[log_ind][0] += kill_rwd
 
         if own_id in obs[i]['alive'] and own_id not in nobs[i]['alive']:
             died = True
-            death_rwd = -0.5
+            death_rwd = p.death_rwd
             r[i] += death_rwd
             logging.info(f"Death of agent {i} rewarded with {death_rwd}")
             log[log_ind][4] += death_rwd
@@ -126,35 +132,35 @@ def skynet_reward(obs, act, nobs, fifo, agent_inds, log, done, bomb_tracker):
         if done:
             if killed and (own_id in alive_agents or nobs[i]['teammate'].value in alive_agents) \
                     and not(enemy_1 in alive_agents or enemy_2 in alive_agents):
-                win_rwd = 0.5
+                win_rwd = p.win_loss_bonus
                 r[i] += win_rwd
                 logging.info(f"Winning blow rewarded by an extra {win_rwd} for agent {i}")
                 log[log_ind][3] += win_rwd
             elif died and (enemy_1 in alive_agents or enemy_2 in alive_agents) \
                     and not (own_id in alive_agents or nobs[i]['teammate'].value in alive_agents):
-                loss_rwd = -0.5
+                loss_rwd = -p.win_loss_bonus
                 r[i] += loss_rwd
-                print(obs[i]['step_count'])
                 logging.info(f"Losing death rewarded by an extra with {loss_rwd} for agent {i}")
                 log[log_ind][3] += loss_rwd
         if prev_n_teammate - cur_n_teammate > 0:
             r[i] -= (prev_n_teammate-cur_n_teammate)*0.0
             log[log_ind][4] -= (prev_n_teammate-cur_n_teammate)*0.0
+        item_reward = p.item_rwd
+        step_reward = p.step_rwd
         if not prev_can_kick and cur_can_kick:
-            r[i] += 0.05
-            log[log_ind][1] += 0.05
+            r[i] += item_reward
+            log[log_ind][1] += item_reward
         if cur_n_ammo - prev_n_ammo > 0 and obs[i]['board'][cur_position[0]][cur_position[1]] == Item.ExtraBomb.value:
-            r[i] += 0.05
-            log[log_ind][1] += 0.05
+            r[i] += item_reward
+            log[log_ind][1] += item_reward
         if cur_n_blast - prev_n_blast > 0:
-            r[i] += 0.05
-            log[log_ind][1] += 0.05
+            r[i] += item_reward
+            log[log_ind][1] += item_reward
         if cur_position not in fifo[i]:
-            r[i] += 0.0003
-            log[log_ind][2] += 0.0003
-        if len(fifo[i]) == 64:
+            r[i] += step_reward
+            log[log_ind][2] += step_reward
+        if len(fifo[i]) == p.fifo_size:
             fifo[i].pop(0)
-
         fifo[i].append(cur_position)
     return r
 

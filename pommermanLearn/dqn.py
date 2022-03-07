@@ -16,7 +16,7 @@ import params as p
 
 class DQN(object):
     def __init__(self, q_network: Pommer_Q, q_target_network: Pommer_Q, init_exploration,
-                 is_train: bool=True, device: torch.device=None, dq:bool=False, support=None):
+                 is_train: bool=True, device: torch.device=None, dq:bool=p.double_q, support=None):
         """
         Create a new DQN model for training or inference.
 
@@ -44,9 +44,10 @@ class DQN(object):
         self.batch_size = p.batch_size
         self.gamma = p.gamma
         self.support = support
-
+        self.categorical = p.categorical
         self.use_n_step = p.use_nstep
         self.n_step = p.nsteps
+
     def update_target(self, q_target, q, t):
         for x, y in zip(q_target.parameters(), q.parameters()):
             x.data.copy_(x.data * (1.0 - t) + y.data * t)
@@ -67,7 +68,6 @@ class DQN(object):
                 q_values = self.q_network(obs)*valid_actions_transformed
             else:
                 q_values = self.q_network(obs)
-
             if self.is_train:
                 if random.random() > self.exploration:
                     action = torch.nan_to_num(q_values, nan=-float('inf')).max(1)[1]
@@ -84,55 +84,62 @@ class DQN(object):
     def set_exploration(self, exp):
         self.exploration = exp
 
-    def update_q(self, obs, act, rwd, nobs, done, weights, indices,
-                 obs_batch_n, act_batch_n, rwd_batch_n, nobs_batch_n, done_batch_n):
-        loss_per_batch_elem = self.calculate_loss(obs, act, rwd, nobs, done, self.gamma)
+    def update_q(self, obs, act, rwd, nobs, done, weights, indices):
+        loss_per_batch_elem = self.calculate_loss(obs, act, rwd, nobs, done, self.categorical)
 
         weights = torch.tensor(weights).to(self.device)
         loss = torch.mean(loss_per_batch_elem * weights)
-        # N-step Learning loss
-        # we are gonna combine 1-step loss and n-step loss so as to
-        # prevent high-variance. The original rainbow employs n-step loss only.
-        if self.use_n_step:
-            gamma = self.gamma ** self.n_step
-            loss_per_batch_elem_n = self.calculate_loss(obs_batch_n, act_batch_n, rwd_batch_n, nobs_batch_n, done_batch_n, gamma)
-            loss_per_batch_elem += loss_per_batch_elem_n
-
-            # PER: importance sampling before average
-            loss = torch.mean(loss_per_batch_elem * weights)
-
         self.q_optim.zero_grad()
         loss.backward()
         self.q_optim.step()
         return loss.item(), loss_per_batch_elem
 
-    def calculate_loss(self, obs, act, rwd, nobs, done, gamma):
-        """
-                q = self.q_network(obs_batch).squeeze()
-                q = q.gather(1, act_batch.long().unsqueeze(1))
-                with torch.no_grad():
-                    if self.double_q:
-                        next_q = self.q_network(nobs_batch).squeeze()
-                        max_action_q = next_q.argmax(1)
-                        next_q_target = self.q_target_network(nobs_batch).squeeze()
-                        max_next_q = next_q_target.gather(1, max_action_q.long().unsqueeze(1))
-                        q_target = rwd_batch + p.gamma * max_next_q * (1.0 - done_batch)
-                    else:
-                        next_q = self.q_target_network(nobs_batch).squeeze()
-                        max_next_q = next_q.max(1)[0].unsqueeze(1)
-                        q_target = rwd_batch + p.gamma * max_next_q * (1.0 - done_batch)
-                    # get td error for prioritized exp replay
-                    td_error = q - q_target
-                loss = F.mse_loss(q_target, q)
-                if p.prioritized_replay:
-                    loss = F.mse_loss(q_target, q, reduction='none')
-                    weights = torch.tensor(weights).to(self.device)
-                    loss = torch.mean(weights * loss)
-                self.q_optim.zero_grad()
-                loss.backward()
-                self.q_optim.step()
-                return loss.item(), td_error
-        """
+    def calculate_loss(self, obs_batch, act_batch, rwd_batch, nobs_batch, done_batch, categorical):
+        if categorical:
+            return self.calculate_loss_categorical(obs_batch, act_batch, rwd_batch, nobs_batch, done_batch)
+        else:
+            return self.calculate_loss_no_categorical(obs_batch, act_batch, rwd_batch, nobs_batch, done_batch)
+
+    def update_q_with_n(self, obs, act, rwd, nobs, done, weights, indices,
+                 obs_batch_n, act_batch_n, rwd_batch_n, nobs_batch_n, done_batch_n):
+        loss_per_batch_elem = self.calculate_loss(obs, act, rwd, nobs, done, self.categorical)
+
+        weights = torch.tensor(weights).to(self.device)
+        # combined 1-step and n-loss
+
+        loss_per_batch_elem_n = self.calculate_loss(obs_batch_n, act_batch_n, rwd_batch_n, nobs_batch_n, done_batch_n, self.categorical)
+        loss_per_batch_elem += loss_per_batch_elem_n
+
+        loss = torch.mean(loss_per_batch_elem * weights)
+        self.q_optim.zero_grad()
+        loss.backward()
+        self.q_optim.step()
+        return loss.item(), loss_per_batch_elem
+
+    def calculate_loss_no_categorical(self, obs, act, rwd, nobs, done):
+        obs_batch = obs
+        nobs_batch = nobs
+        act_batch = act
+        rwd_batch = rwd
+        done_batch = done
+
+        q = self.q_network(obs_batch).squeeze()
+        q = q.gather(1, act_batch.long().unsqueeze(1))
+        with torch.no_grad():
+            if self.double_q:
+                next_q = self.q_network(nobs_batch).squeeze()
+                max_action_q = next_q.argmax(1)
+                next_q_target = self.q_target_network(nobs_batch).squeeze()
+                max_next_q = next_q_target.gather(1, max_action_q.long().unsqueeze(1))
+                q_target = rwd_batch + p.gamma * max_next_q * (1.0 - done_batch)
+            else:
+                next_q = self.q_target_network(nobs_batch).squeeze()
+                max_next_q = next_q.max(1)[0].unsqueeze(1)
+                q_target = rwd_batch + p.gamma * max_next_q * (1.0 - done_batch)
+        loss = F.mse_loss(q_target, q, reduction='none')
+        return loss
+
+    def calculate_loss_categorical(self, obs, act, rwd, nobs, done):
         obs_batch = obs
         nobs_batch = nobs
         act_batch = act
@@ -141,14 +148,13 @@ class DQN(object):
 
         # Categorical DQN algorithm
         delta_z = float(self.v_max - self.v_min) / (self.atom_size - 1)
-
         with torch.no_grad():
             # Double DQN
-            next_action = self.q_network(nobs_batch).argmax(1)
+            next_action = self.q_network(nobs_batch).argmax(1) if self.double_q else self.q_target_network(nobs_batch).argmax(1)
             next_dist = self.q_target_network.get_distribution(nobs_batch)
             next_dist = next_dist[range(self.batch_size), next_action]
 
-            t_z = rwd_batch + (1 - done_batch) * p.gamma * self.support
+            t_z = rwd_batch + (1 - done_batch) * self.gamma * self.support
             t_z = t_z.clamp(min=self.v_min, max=self.v_max)
             b = (t_z - self.v_min) / delta_z
             l = b.floor().long()
@@ -176,35 +182,32 @@ class DQN(object):
         loss_per_batch_elem = -(proj_dist * log_p).sum(1)
         return loss_per_batch_elem
 
+    def train(self, batch, batch_n=None):
+        obs_batch, act_batch, rwd_batch, nobs_batch, done_batch, weights, indexes = batch
+        if self.use_n_step:
+            obs_batch_n, act_batch_n, rwd_batch_n, nobs_batch_n, done_batch_n = batch_n
+            act_batch_n, done_batch_n, nobs_batch_n, obs_batch_n, rwd_batch_n = self.transform_to_tensors(
+                act_batch_n,
+                done_batch_n,
+                nobs_batch_n,
+                obs_batch_n,
+                rwd_batch_n)
 
-    def train(self, batch, batch_n):
-        if p.prioritized_replay:
-            obs_batch, act_batch, rwd_batch, nobs_batch, done_batch, weights, indexes = batch
-            if self.use_n_step:
-                obs_batch_n, act_batch_n, rwd_batch_n, nobs_batch_n, done_batch_n = batch_n
-                act_batch_n, done_batch_n, nobs_batch_n, obs_batch_n, rwd_batch_n = self.transform_to_tensors(
-                    act_batch_n,
-                    done_batch_n,
-                    nobs_batch_n,
-                    obs_batch_n,
-                    rwd_batch_n)
-        else:
-            obs_batch, act_batch, rwd_batch, nobs_batch, done_batch = batch
-            weights = None
-            indexes = None
         act_batch, done_batch, nobs_batch, obs_batch, rwd_batch = self.transform_to_tensors(act_batch, done_batch,
                                                                                             nobs_batch, obs_batch,
                                                                                             rwd_batch)
 
-        self.q_network.reset_noise()
-        self.q_target_network.reset_noise()
         if self.use_n_step:
-            loss, td_error = self.update_q(obs_batch, act_batch, rwd_batch, nobs_batch, done_batch, weights, indexes
+            loss, td_error = self.update_q_with_n(obs_batch, act_batch, rwd_batch, nobs_batch, done_batch, weights, indexes
                                        ,obs_batch_n, act_batch_n, rwd_batch_n, nobs_batch_n, done_batch_n)
         else:
             loss, td_error = self.update_q(obs_batch, act_batch, rwd_batch, nobs_batch, done_batch, weights, indexes)
         self.update_target(self.q_target_network, self.q_network, p.tau)
         return loss, indexes, td_error
+
+    def reset_net_noise(self):
+        self.q_network.reset_noise()
+        self.q_target_network.reset_noise()
 
     def transform_to_tensors(self, act_batch, done_batch, nobs_batch, obs_batch, rwd_batch):
         obs_batch = [np.array(obs) for obs in list(zip(*obs_batch))]

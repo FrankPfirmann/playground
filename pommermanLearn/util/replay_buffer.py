@@ -11,7 +11,7 @@ class ReplayBuffer:
         self.replay_size = replay_size
         # prioritized replay variables
         if p.prioritized_replay:
-            self.alpha = 0.7
+            self.alpha = p.alpha
             self.priority_sums = [0 for _ in range(2 * self.replay_size)]  # store priorities in binary segment trees
             self.priority_mins = [float('inf') for _ in range(2 * self.replay_size)]
             self.max_priorities = 1.0
@@ -104,8 +104,11 @@ class ReplayBuffer:
     def get_batch_buffer(self, size, beta=p.beta):
         ''' sample transitions from buffer (including weights and indexes with prioritized replay '''
         if not p.prioritized_replay:
-            batch = list(zip(*random.sample(self.buffers, size)))
-            return np.array(batch[0]), np.array(batch[1]), np.array(batch[2]), np.array(batch[3]), np.array(batch[4])
+            indexed_samples = random.sample(list(enumerate(self.buffers)), size)
+            indexes, samples = zip(*indexed_samples)
+            weights = np.ones(shape=size, dtype=np.float32)
+            batch = list(zip(*samples))
+            return np.array(batch[0]), np.array(batch[1]), np.array(batch[2]), np.array(batch[3]), np.array(batch[4]), weights, indexes
         else:
             samples = {
                 'weights': np.zeros(shape=size, dtype=np.float32),
@@ -117,7 +120,6 @@ class ReplayBuffer:
                 prefix_sum = random.random() * self._sum()
                 idx = self.find_prefix_sum_idx(prefix_sum)
                 samples['indexes'][i] = idx
-
             # calculate max weight (used to calculate individual weights)
             prob_min = self._min() / self._sum()
             max_weight = (prob_min * self.sizes) ** (-beta)

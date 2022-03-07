@@ -138,7 +138,7 @@ class DataGeneratorPommerman:
                 fifo[i].clear()
 
             while not done:
-                if render and i_episode == 0:
+                if render:
                     env.render()
                 act = env.act(obs)
                 first_act = [i[0] if type(i) == list else i for i in act]
@@ -163,10 +163,6 @@ class DataGeneratorPommerman:
                         agt_rwd = bomb_reward(nobs, act, agent_inds[i])/100
                     else:
                         agt_rwd = staying_alive_reward(nobs, agent_ids[i])
-                     # woods close to bomb reward
-                    # if act[agent_inds[i]] == Action.Bomb.value:
-                    #     agent_obs = obs[agent_inds[i]]
-                    #     agt_rwd += woods_close_to_bomb_reward(agent_obs, agent_obs['position'], agent_obs['blast_strength'], agent_ids)
                     #only living agent gets winning rewards
                     #draw reward for living agents
                     if steps_n == max_steps:
@@ -180,22 +176,24 @@ class DataGeneratorPommerman:
                             agt.update_memory(nobs[agent_inds[i]])
                             agt_nobs = agt.get_memory_view()
                             act_no_msg = act[agent_inds[i]][0] if p.communicate else act[agent_inds[i]]
-                            transition = (agt_obs, act_no_msg, agt_rwd * 100, \
+
+                            transition = (agt_obs, act_no_msg, agt_rwd, \
                                           agt_nobs, done)
                         else:
-                            transition = (transformer(obs[agent_inds[i]]), act[agent_inds[i]], agt_rwd*100, \
+                            transition = (transformer(obs[agent_inds[i]]), act[agent_inds[i]], agt_rwd, \
                                           transformer(nobs[agent_inds[i]]), done)
                         transitions = [transition]
                         # Create new transitions
                         for augmentor in self.augmentors:
-                            transition_augmented = augmentor.augment(obs[agent_inds[i]], act[agent_inds[i]], agt_rwd*100, nobs[agent_inds[i]], not alive)
+                            transition_augmented = augmentor.augment(obs[agent_inds[i]], act[agent_inds[i]], agt_rwd, nobs[agent_inds[i]], not alive)
                             for t in transition_augmented:
-                                transitions.append((transformer(t[0]), t[1], t[2]*100, transformer(t[3]), t[4]))
+                                transitions.append((transformer(t[0]), t[1], t[2], transformer(t[3]), t[4]))
 
                         # Add everything to the buffer
                         if not test:
                             for t in transitions:
                                 if p.use_nstep:
+                                    #only add to 1-step-buffer
                                     added_to_n = self.replay_buffers_n[i].add_to_buffer(*t)
                                     if added_to_n:
                                         self.replay_buffers[i].add_to_buffer(*t)

@@ -33,31 +33,28 @@ def init_weights(m):
 class Pommer_Q(nn.Module):
     def __init__(self, p_central, board_transform_func, support=None):
         super(Pommer_Q, self).__init__()
-        self.conv_kernel_size = 3
-        self.conv_kernel_stride = 1
-        self.pool_kernel_size = 2
-        self.pool_kernel_stride = 2
-        self.last_cnn_depth = 32
         self.conv_out_dim = 64
-        self.planes_num = 15 if p_central else 14
+        self.planes_num = 26 if p.use_memory else 25
         self.padding = 1
-        self.linear_out_dim = 32
-        self.combined_out_dim = 128
+        self.first_hidden_out_dim = 256
         self.memory = None
         self.support = support
-        self.atom_size = p.atom_size
+        self.atom_size = p.atom_size if p.categorical else 1
         self.p_obs = p.p_observable
-        self.noisy1v = NoisyLinear(self.combined_out_dim, 128)
-        #self.noisy2v = NoisyLinear(128, 1)
-        self.noisy2v = NoisyLinear(128, self.atom_size)
-        self.noisy1a = NoisyLinear(self.combined_out_dim, 128)
-        self.noisy2a = NoisyLinear(128, 6 * self.atom_size)
-        #self.noisy2a = NoisyLinear(128, 6)
+        self.noisy_layers = []
+        self.dueling = p.dueling
+        self.categorical = p.categorical
+        self.value_1 = self.linear_layer(self.first_hidden_out_dim, 128, p.noisy) if self.dueling else None
+        self.value_2 = self.linear_layer(128, self.atom_size, p.noisy) if self.dueling else None
+        self.advantage_1 = self.linear_layer(self.first_hidden_out_dim, 128, p.noisy)
+        self.advantage_2 = self.linear_layer(128, 6 * self.atom_size, p.noisy)
+
         self.conv = nn.Sequential(
             nn.Conv2d(in_channels=self.planes_num, out_channels=64, kernel_size=(3, 3), stride=(1, 1)), \
             nn.ReLU(inplace=True),
             nn.Conv2d(in_channels=64, out_channels=64, kernel_size=(3, 3), stride=(1, 1)),
             nn.ReLU(inplace=True),
+           # nn.MaxPool2d((2,2), stride=(1,1)),
             nn.Conv2d(in_channels=64, out_channels=64, kernel_size=(3, 3), stride=(1, 1)),
             nn.ReLU(inplace=True),
             nn.Conv2d(in_channels=64, out_channels=64, kernel_size=(3, 3), stride=(1, 1)),
@@ -66,54 +63,76 @@ class Pommer_Q(nn.Module):
         )
         self.board_transform_func = board_transform_func
 
-        self.linear = nn.Sequential(
-            nn.Linear(in_features=14, out_features=self.linear_out_dim),
-            nn.ReLU()
-        )
-        self.combined = nn.Sequential(
-            nn.Linear(in_features=608, out_features=self.combined_out_dim),
+        self.hidden_1 = nn.Sequential(
+            nn.Linear(in_features=576, out_features=self.first_hidden_out_dim),
             nn.ReLU()
 
         )
         self.value_stream = nn.Sequential(
-            self.noisy1v,
+            self.value_1,
             nn.ReLU(),
-            self.noisy2v
+            self.value_2
         )
         self.advantage_stream = nn.Sequential(
-            self.noisy1a,
+            self.advantage_1,
             nn.ReLU(),
-            self.noisy2a
+            self.advantage_2
         )
 
+    def linear_layer(self, in_size, out_size, noisy):
+        if noisy:
+            noisy_layer = NoisyLinear(in_size, out_size)
+            self.noisy_layers.append(noisy_layer)
+            return noisy_layer
+        else:
+            return nn.Linear(in_size, out_size)
+
     def forward(self, obs):
-        distribution = self.get_distribution(obs)
-        q_values = torch.sum(distribution * self.support, dim=2)
+        if self.categorical:
+            distribution = self.get_distribution(obs)
+            q_values = torch.sum(distribution * self.support, dim=2)
+        else:
+            q_values = self.get_q_non_categorical(obs)
         return q_values
 
-    def get_distribution(self, obs):
-        x1 = obs[0]  # Board
-        x2 = obs[1]  # Step, Position
+    def get_features(self, obs):
+        x1 = obs[0]
         x1 = self.conv(x1)
-        x2 = self.linear(x2)
-        concat = torch.cat((x1, x2), dim=1).squeeze()
-        combined_out = self.combined(concat)
+        hidden_out = self.hidden_1(x1)
+        return hidden_out
 
-        values = self.value_stream(combined_out)
+    def get_distribution(self, obs):
+        combined_out = self.get_features(obs)
         advantages = self.advantage_stream(combined_out)
-        values_view = values.view(-1, 1, self.atom_size)
         advantages_view = advantages.view(-1, 6, self.atom_size)
-        q_atoms = values_view + advantages_view - advantages_view.mean(dim=1, keepdim=True)
-        dist = F.softmax(q_atoms, dim=-1)
+        if self.dueling:
+            values = self.value_stream(combined_out)
+            values_view = values.view(-1, 1, self.atom_size)
+            q_atoms = values_view + advantages_view - advantages_view.mean(dim=1, keepdim=True)
+            dist = F.softmax(q_atoms, dim=-1)
+        else:
+            dist = F.softmax(advantages_view, dim=-1)
         dist = dist.clamp(min=1e-3)
         return dist
 
+    def get_q_non_categorical(self, obs):
+        combined_out = self.get_features(obs)
+        advantages = self.advantage_stream(combined_out)
+        if self.dueling:
+            values = self.value_stream(combined_out)
+            q_values = values + advantages - advantages.mean(dim=1, keepdim=True)
+        else:
+            q_values = advantages
+        return q_values
 
     def reset_noise(self):
-        self.noisy1v.reset_noise()
-        self.noisy2v.reset_noise()
-        self.noisy1a.reset_noise()
-        self.noisy2a.reset_noise()
+        for layer in self.noisy_layers:
+            layer.reset_noise()
+
+    def _init_with_value(self, value, board_size):
+        a = np.zeros((board_size, board_size))
+        a.fill(value)
+        return a
 
     def get_transformer(self) -> Callable:
         """
@@ -130,20 +149,24 @@ class Pommer_Q(nn.Module):
             self_v = ((teammate_v -8) % 4)+ 10
             teammate_dead = 0 if teammate_v in obs['alive'] else 1
             self_dead = 0 if self_v in obs['alive'] else 1
+
             board = pre_transformed if pre_transformed is not None else self.board_transform_func(obs)
-            return [
-                board,
-                np.array(np.hstack((
-                    np.array(obs['step_count']),
-                    np.array(list(obs['position'])),
-                    np.array(obs['ammo']),
-                    np.array(obs['can_kick']),
-                    np.array(obs['blast_strength']),
-                    np.array(enemy_dead),
-                    np.array(teammate_dead),
-                    np.array(self_dead),
-                    np.array([float(i == self_v - 10) for i in range(0, 4)])
-                )))]
+            board_size = board.shape[1]
+
+            fl = [self._init_with_value(obs['step_count'] / p.max_steps, board_size),
+                  self._init_with_value(obs['position'][0], board_size),
+                  self._init_with_value(obs['position'][1], board_size),
+                  self._init_with_value(obs['ammo'], board_size),
+                  self._init_with_value(obs['can_kick'], board_size),
+                  self._init_with_value(obs['blast_strength'], board_size),
+                  self._init_with_value(float(self_dead), board_size),
+                  self._init_with_value(float(enemy_dead[0]), board_size),
+                  self._init_with_value(float(enemy_dead[1]), board_size),
+                  self._init_with_value(float(teammate_dead), board_size),
+                  ]
+            fl = np.array(fl)
+            board = np.vstack((board, fl))
+            return [board]
 
         return transformer
 

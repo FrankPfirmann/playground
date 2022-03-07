@@ -87,7 +87,6 @@ class TrainAgent(agents.BaseAgent):
                                3: (bsize-2, 1)}
         self.communicate = communicate
         self.transformer = transformer
-        self.act_queue = []
 
     def get_memory_view(self):
         '''
@@ -116,7 +115,7 @@ class TrainAgent(agents.BaseAgent):
             self.enemy_ids = [e.value for e in obs["enemies"]]
             self.teammate_pos = self.teammate_start[self.agent_id]
             self.prev_pos = obs["position"]
-            self.memory.set_agent_spawns()
+            self.memory.set_agent_spawns(obs["teammate"].value)
 
         if "message" in obs.keys():
             self.alter_memory(obs)
@@ -159,6 +158,7 @@ class TrainAgent(agents.BaseAgent):
     def act(self, obs, action_space):
         #filter before since it only works with the original observation
         valid_actions = get_filtered_actions(obs)
+
         if p.use_memory and p.p_observable:
         # only update memory here in initial state or in tournament mode
         # during training the data generator updates it pre-emptively with nobs
@@ -168,11 +168,6 @@ class TrainAgent(agents.BaseAgent):
         else:
             act = self.policy(self.transformer(obs), valid_actions)
         act = int(act.detach().cpu().numpy()[0])
-        if len(self.act_queue) == 4:
-            if self.act_queue[0] == self.act_queue[2] and self.act_queue[1] == self.act_queue[3] and len(valid_actions) != 0:
-                act = random.choice(valid_actions)
-            self.act_queue.pop(0)
-        self.act_queue.append(act)
         if self.next_msg is not None:
             return [act, self.next_msg[0], self.next_msg[1]]
         else:

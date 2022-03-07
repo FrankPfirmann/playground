@@ -1,7 +1,9 @@
-import matplotlib.testing.compare
 import numpy as np
+
+import params
 from pommerman.constants import Item
 import torch
+
 
 def transform_observation(obs: dict, p_obs: bool=False, centralized: bool=False, crop_fog: bool=True):
     """
@@ -34,6 +36,20 @@ def transform_observation(obs: dict, p_obs: bool=False, centralized: bool=False,
     return transformed
 
 
+def get_ids_in_order(teammate_v):
+    '''
+    obtain the correct vlaues of agent on the board ordered by (self, teammate, lower agent, higher agent
+    :param teammate_v: value of teammate on the board (e.g. 13)
+    :return:
+    '''
+    self_v = ((teammate_v - 8) % 4) + 10
+    enemy_v1 = ((teammate_v - 9) % 4) + 10
+    enemy_v2 = ((teammate_v - 7) % 4) + 10
+    if enemy_v2 < enemy_v1:
+        enemy_v1, enemy_v2 = enemy_v2, enemy_v1
+    return self_v, teammate_v, enemy_v1, enemy_v2
+
+
 def create_bitmaps(board, centralized, obs, p_obs, crop_fog):
     '''
     function to create a bitmap for each possible board value
@@ -44,6 +60,7 @@ def create_bitmaps(board, centralized, obs, p_obs, crop_fog):
     :return: the bitmaps representing our board
     '''
     view_type = np.float64
+    self_v, teammate_v, enemy_v1, enemy_v2 = get_ids_in_order(obs['teammate'].value)
     views = [  # Index
         np.isin(board, Item.Passage.value).astype(view_type),  # 0
         np.isin(board, Item.Rigid.value).astype(view_type),  # 1
@@ -53,15 +70,17 @@ def create_bitmaps(board, centralized, obs, p_obs, crop_fog):
         np.isin(board, Item.ExtraBomb.value).astype(view_type),  # 5
         np.isin(board, Item.IncrRange.value).astype(view_type),  # 6
         np.isin(board, Item.Kick.value).astype(view_type),  # 7
-        np.isin(board, Item.Agent0.value).astype(view_type),  # 8
-        np.isin(board, Item.Agent1.value).astype(view_type),  # 9
-        np.isin(board, Item.Agent2.value).astype(view_type),  # 10
-        np.isin(board, Item.Agent3.value).astype(view_type),  # 11
-        np.array(obs['flame_life']).astype(view_type),  # 12
-        np.array(obs['bomb_life']).astype(view_type)  # 13
+        np.isin(board, self_v).astype(view_type),  # 8
+        np.isin(board, teammate_v).astype(view_type),  # 9
+        np.isin(board, enemy_v1).astype(view_type),  # 10
+        np.isin(board, enemy_v2).astype(view_type),  # 11
+        np.array(obs['flame_life']/3).astype(view_type),  # 12
+        np.array(obs['bomb_life']/9).astype(view_type)  # 13
     ]
     if p_obs and not crop_fog:
-        views.append(np.isin(board, Item.Fog.value).astype(np.uint8))  # 14
+        #normalized count of when cell was last visited
+        views.append(np.ones_like(board).astype(np.uint8))  # 14
+        views.append(np.isin(board, Item.Fog.value).astype(np.uint8))  # 15
     if (centralized and not p_obs) or crop_fog:
         views.append(np.zeros(board.shape))
     return views
@@ -100,7 +119,8 @@ def centralize_view(view: torch.tensor, position: np.array, padding: int=0):
     centralized[int(left):int(right), int(up):int(down)] = view
 
     return centralized
-    
+
+
 def decentralize_view(view: np.array, position: list, bounds: tuple):
     """
     Move a centralized view back to its original position
@@ -123,6 +143,7 @@ def decentralize_view(view: np.array, position: list, bounds: tuple):
     down  = up   + bh
     return view[int(left):int(right), int(up):int(down)]
 
+
 def calculate_center(shape: tuple):
     """
     Calculate and return the center point of ``shape``.
@@ -136,6 +157,7 @@ def calculate_center(shape: tuple):
 
     x, y = [int((d-1)/2) for d in shape[-2:]]
     return (x, y)
+
 
 def crop_view(view: np.array, view_range: int):
     """
@@ -284,3 +306,21 @@ def merge_views_counting(first: np.array, second: np.array, fov: np.array):
 
     merged = second * fov + (first + inc)*fog
     return merged
+
+def update_cell_visit(first: np.array, position):
+    """
+    Merge ``first`` and ``second`` by counting the number of steps that
+    elements have not been updated.
+
+    :param first: A numpy array respresenting the first view
+    :param second: A numpy array respresenting the second view
+    :param fov: A binary numpy array respresenting the field of view
+        values outside the field of view.
+
+    :return: ``first`` and ``second`` merged by incrementing everything
+        inside the fog and copying everything inside the fov.
+    """
+    first_dec = first + 1/params.fifo_size
+    first_dec[first_dec > 1] = 1
+    first_dec[position[0], position[1]] = 0
+    return first_dec
