@@ -5,7 +5,7 @@ import torch
 
 from pommerman.constants import Item
 from util.data import centralize_view, decentralize_view, merge_views, merge_views_life, merge_views_counting, \
-    crop_view, create_bitmaps, merge_views_unique
+    crop_view, create_bitmaps, merge_views_unique, get_ids_in_order, update_cell_visit
 import params as p
 
 
@@ -32,7 +32,7 @@ class BoardTracker:
 
         batch_size = view.shape[0]
         for sample in range(batch_size):
-            for layer in range(14):  # Merge all layers but fog
+            for layer in range(15):  # Merge all layers but fog
                 if layer in [0, 1]:  # Remember walls and passages always
                     forgetfulness = 0.0
                 else:  # Forget other layers that are out of view slowly
@@ -122,9 +122,9 @@ class BoardTracker:
             return
 
         # Invert fog to get field of view
-        fov = 1 - nobs[0][..., 14, :, :]
+        fov = 1 - nobs[0][..., 15, :, :]
 
-        for layer in range(14):
+        for layer in range(15):
             if layer in [0, 1]:  # Remember walls and passages always
                 forgetfulness = 0.0
             else:  # Forget other layers that are out of view slowly
@@ -164,7 +164,7 @@ class BoardTrackerFixed:
 
     def update(self, obs) -> None:
         """
-        Updates the global state with the centralized and cropped ``view``
+        Updates the global state with the fixed board bitmap observation
 
         :param board: A cropped and centralized view of the board
         :param position: The position of the views center in the global
@@ -176,8 +176,7 @@ class BoardTrackerFixed:
         if self.board is None:
             self.board = bitmaps
             return
-
-        for layer in range(14):  # Merge all layers but fog
+        for layer in range(15):  # Merge all layers but fog
             if layer in [0, 1]:  # Remember walls and passages always
                 forgetfulness = 0.0
             else:  # Forget other layers that are out of view slowly
@@ -188,17 +187,19 @@ class BoardTrackerFixed:
             second = bitmaps[layer, :, :]
             fog = bitmaps[-1, :, :]
             fov = 1 - fog
-
+            ids = list(get_ids_in_order(obs['teammate'].value))
             if p.memory_method == 'forgetting':
                 if layer <= 7:
                     merged = merge_views(
                         first, second, fov, forgetfullness=forgetfulness)
                 elif layer <= 11:
-                    layer_alive = layer + 2 in obs['alive'] #bool whether agent belonging to layer is alive
+                    layer_alive = ids[layer-8] in obs['alive'] #bool whether agent belonging to layer is alive
                     merged = merge_views_unique(
                         first, second, fov, layer_alive, forgetfullness=forgetfulness)
-                else:
+                elif layer <= 13:
                     merged = merge_views_life(first, second, fov)
+                elif layer <= 14:
+                    merged = update_cell_visit(first, obs['position'])
             elif p.memory_method == 'counting':
                 merged = merge_views_counting(first, second, fov)
 
@@ -245,15 +246,34 @@ class BoardTrackerFixed:
         self.board = None
         self.position = None
 
-    def set_agent_spawns(self):
+    def set_agent_spawns(self, teammate_v):
         '''
         set the agent spawns initially (these decay over time)
         '''
         logging.debug("set agent spawn")
-        self.board[8, 1, 1] = 1.0
-        self.board[9, self.b-2, 1] = 1.0
-        self.board[10, self.b-2, self.b-2] = 1.0
-        self.board[11, 1, self.b-2] = 1.0
+        if teammate_v == 12:
+            self.board[8, 1, 1] = 1.0
+            self.board[9, self.b-2, self.b-2] = 1.0
+            self.board[10, self.b - 2, 1] = 1.0
+            self.board[11, 1, self.b-2] = 1.0
+        elif teammate_v == 10:
+            self.board[8, self.b - 2, self.b - 2] = 1.0
+            self.board[9, 1, 1] = 1.0
+            self.board[10, self.b - 2, 1] = 1.0
+            self.board[11, 1, self.b - 2] = 1.0
+        elif teammate_v == 13:
+            self.board[8, self.b - 2, 1] = 1.0
+            self.board[9, 1, self.b - 2] = 1.0
+            self.board[10, 1, 1] = 1.0
+            self.board[11, self.b - 2, self.b - 2] = 1.0
+        elif teammate_v == 11:
+            self.board[8, 1, self.b - 2] = 1.0
+            self.board[9, self.b - 2, 1] = 1.0
+            self.board[10, 1, 1] = 1.0
+            self.board[11, self.b - 2, self.b - 2] = 1.0
+        else:
+            logging.error("Wrong teammate value somehow")
+            exit(0)
 
     def set_teammate_pos(self, board, teammate_id, teammate_pos):
         '''
@@ -267,8 +287,8 @@ class BoardTrackerFixed:
         if teammate_id in board:
             return
         else:
-            self.board[teammate_id-2] = np.zeros((self.b, self.b))
-            self.board[teammate_id-2, teammate_pos[0], teammate_pos[1]] = 1.0
+            self.board[9] = np.zeros((self.b, self.b))
+            self.board[9, teammate_pos[0], teammate_pos[1]] = 1.0
             return
 
     def adjust_enemy_pos(self, board, enemy_id, teammate_pos, region_id):
@@ -294,7 +314,8 @@ class BoardTrackerFixed:
             fog_indices = list(zip(fog[0], fog[1]))
             # only elligible enemy spots are where fog is
             enemy_indexes = [i for i in enemy_indexes if 0 <= i[0] < self.b and 0 <= i[1] < self.b and i in fog_indices]
-            self.board[enemy_id - 2] = np.zeros((self.b, self.b))
+            enemy_layer = 10 if enemy_id <= 11 else 12
+            self.board[enemy_layer] = np.zeros((self.b, self.b))
             certainty = 0 if len(enemy_indexes) == 0 else 1/len(enemy_indexes)
             for index in enemy_indexes:
-                self.board[enemy_id - 2, index[0], index[1]] = certainty
+                self.board[enemy_layer, index[0], index[1]] = certainty

@@ -1,4 +1,6 @@
 import logging
+import random
+from collections import deque
 
 import params
 from action_prune import get_filtered_actions
@@ -100,7 +102,7 @@ class TrainAgent(agents.BaseAgent):
         self.memory.update(obs)
         if self.communicate:
             self.do_communication(obs)
-        views = self.memory.get_view(self.position, centralized=p.centralize_planes)
+        views = self.memory.get_view(obs["position"], centralized=p.centralize_planes)
         self.obs = self.transformer(obs, pre_transformed=views)
 
     def do_communication(self, obs):
@@ -112,13 +114,13 @@ class TrainAgent(agents.BaseAgent):
             self.init = False
             self.enemy_ids = [e.value for e in obs["enemies"]]
             self.teammate_pos = self.teammate_start[self.agent_id]
-            self.prev_pos = self.position
-            self.memory.set_agent_spawns()
+            self.prev_pos = obs["position"]
+            self.memory.set_agent_spawns(obs["teammate"].value)
 
         if "message" in obs.keys():
             self.alter_memory(obs)
         self.calc_send_msg(obs)
-        self.prev_pos = self.position
+        self.prev_pos = obs["position"]
 
     def alter_memory(self, obs):
         '''
@@ -144,8 +146,8 @@ class TrainAgent(agents.BaseAgent):
         current enemy is always alternating between the two agents
         :param obs: agent made observation
         '''
-        pos_change_message = self._get_position_change(self.position, self.prev_pos)
-        view = crop_view(centralize_view(obs['board'], self.position, padding=0), 4)
+        pos_change_message = self._get_position_change(obs["position"], self.prev_pos)
+        view = crop_view(centralize_view(obs['board'], obs["position"], padding=0), 4)
         current_enemy_send = self.enemy_ids[0] if self.transmit_first else self.enemy_ids[1]
 
         enemy_message = 0 if current_enemy_send not in view else _region_of_enemy(view, current_enemy_send) + 1
@@ -156,6 +158,7 @@ class TrainAgent(agents.BaseAgent):
     def act(self, obs, action_space):
         #filter before since it only works with the original observation
         valid_actions = get_filtered_actions(obs)
+
         if p.use_memory and p.p_observable:
         # only update memory here in initial state or in tournament mode
         # during training the data generator updates it pre-emptively with nobs

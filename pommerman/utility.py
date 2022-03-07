@@ -65,6 +65,11 @@ def make_custom_board():
         lay_at_all_direction(board, size, i, 1, constants.Item.Wood.value)
     for i in range(1, size-1, 2):
         lay_at_all_direction(board, size, i, 3, constants.Item.Wood.value)
+
+    board[2, 2] = constants.Item.Passage.value
+    board[size - 3, 2] = constants.Item.Passage.value
+    board[size - 3, size - 3] = constants.Item.Passage.value
+    board[2, size - 3] = constants.Item.Passage.value
     return board
 def make_board(size, num_rigid=0, num_wood=0, num_agents=4):
     """Make the random but symmetric board.
