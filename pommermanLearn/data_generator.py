@@ -40,6 +40,15 @@ class DataGeneratorPommerman:
         self.augmentors = augmentors
 
         self.logger = Logger('log')
+        self.init_session()
+
+
+    def init_session(self):
+        self.reward_log = [[0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0]]
+        self.act_counts = [[0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                           [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]]
+        self.res = np.array([0.0] * 2)
+        self.ties = 0.0
 
     def get_batch_buffer(self, batch_size, agent_num):
         return self.replay_buffers[agent_num].get_batch_buffer(batch_size)
@@ -119,11 +128,7 @@ class DataGeneratorPommerman:
         total_reward = 0.0
         total_steps  = 0.0
 
-        self.reward_log = [[0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0]]
-        self.act_counts = [[0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                    [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]]
-        self.res = np.array([0.0] * 2)
-        self.ties = 0.0
+        self.init_session()
         for _ in range(episodes):
             reward, steps = \
                 self.generate_episode(agent1, agent2, policy1, policy2, enemy, transformer, max_steps,
@@ -144,7 +149,7 @@ class DataGeneratorPommerman:
         logging.info(self.act_counts)
         self.logger.write(self.res, self.ties, average_reward)
         # TODO: Change the return type to something more readable outside the function
-        return (self.res, self.ties, average_reward, self.act_counts, average_steps)
+        return self.res, self.ties, average_reward, self.act_counts, average_steps
 
     def generate_episode(self, agent1: str, agent2: str, policy1, policy2, enemy: str, transformer, max_steps,
                          test=False, render=False):
@@ -215,8 +220,15 @@ class DataGeneratorPommerman:
                         transitions.extend(self.augment_transition((obs[agt_idx], act[agt_idx], agt_rwd, nobs[agt_idx], not was_alive), transformer))
 
                         # Add everything to the buffer
-                        for t in transitions:
-                            self.replay_buffers[i].add_to_buffer(*t)
+                        if not test:
+                            for t in transitions:
+                                if p.use_nstep:
+                                    # only add to 1-step-buffer
+                                    added_to_n = self.replay_buffers_n[i].add_to_buffer(*t)
+                                    if added_to_n:
+                                        self.replay_buffers[i].add_to_buffer(*t)
+                                else:
+                                    self.replay_buffers[i].add_to_buffer(*t)
 
                     if was_alive[i]:
                         ep_rwd += agt_rwd
@@ -240,73 +252,74 @@ class DataGeneratorPommerman:
 
             env.close()
 
-        return (reward, steps)
+        return reward, steps
 
 
-def augment_transition(self, transition: list, transformer: Callable) -> list:
-    """
-    Apply augmentors to the given transition and transform them.
+    def augment_transition(self, transition: list, transformer: Callable) -> list:
+        """
+        Apply augmentors to the given transition and transform them.
 
-    :param transition: Transition to augment
-    :param transformer: Transformer to apply afterwards
-    """
-    transitions = []
-    for augmentor in self.augmentors:
-        augmented = augmentor.augment(*transition)
-        for a in augmented:
-            transitions.append((transformer(a[0]), a[1], a[2] * 100, transformer(a[3]), a[4]))
-    return transitions
+        :param self:
+        :param transition: Transition to augment
+        :param transformer: Transformer to apply afterwards
+        """
+        transitions = []
+        for augmentor in self.augmentors:
+            augmented = augmentor.augment(*transition)
+            for a in augmented:
+                transitions.append((transformer(a[0]), a[1], a[2] * 100, transformer(a[3]), a[4]))
+        return transitions
 
 
-def calculate_rewards(self, obs: dict, act: list, nobs: dict, env_reward: float, done: bool):
-    """
-    Calculate the rewards for the given state transitions.
+    def calculate_rewards(self, obs: dict, act: list, nobs: dict, env_reward: float, done: bool):
+        """
+        Calculate the rewards for the given state transitions.
 
-    :param obs: `List` containing observations of each agent
-    :param act: List containing the chosen actions by all agents
-    :param nobs: `List` containing the observation following `obs`
-        for each agent.
-    :param env_reward: Reward given directly from the environment.
-    :param done: `True` if the episode terminated, otherwise `False`
-    """
-    rewards = []
-    indices = [i for i in range(self.agents_n)]
-    ids = [10 + i for i in indices]
-    for index, id in zip(indices, ids):
-        alive = id in obs[index]['alive']
-        died = alive and id not in obs[index]['alive']
-        steps_n = obs[index]['step_count']
-        won = env_reward[index] == 1
-        agt_rwd = 0.0
+        :param obs: `List` containing observations of each agent
+        :param act: List containing the chosen actions by all agents
+        :param nobs: `List` containing the observation following `obs`
+            for each agent.
+        :param env_reward: Reward given directly from the environment.
+        :param done: `True` if the episode terminated, otherwise `False`
+        """
+        rewards = []
+        indices = [i for i in range(self.agents_n)]
+        ids = [10 + i for i in indices]
+        for index, id in zip(indices, ids):
+            alive = id in obs[index]['alive']
+            died = alive and id not in obs[index]['alive']
+            steps_n = obs[index]['step_count']
+            won = env_reward[index] == 1
+            agt_rwd = 0.0
 
-        if p.reward_func == "SkynetReward":
-            agt_rwd = skynet_reward(obs, act, nobs, self.fifo, [index], self.reward_log)[index]
-        elif p.reward_func == "BombReward":
-            agt_rwd = bomb_reward(nobs, act, index) / 100
-        else:
-            agt_rwd = staying_alive_reward(nobs, id)
+            if p.reward_func == "SkynetReward":
+                agt_rwd = skynet_reward(obs, act, nobs, self.fifo, [index], self.reward_log)[index]
+            elif p.reward_func == "BombReward":
+                agt_rwd = bomb_reward(nobs, act, index) / 100
+            else:
+                agt_rwd = staying_alive_reward(nobs, id)
 
-        # woods close to bomb reward
-        # if act[agent_inds[i]] == Action.Bomb.value:
-        #     agent_obs = obs[agent_inds[i]]
-        #     agt_rwd += woods_close_to_bomb_reward(agent_obs, agent_obs['position'], agent_obs['blast_strength'], agent_ids)
-        # only living agent gets winning rewards
-        if done:
-            if won:
-                agt_rwd = 0.5
-                logging.info(f"Win rewarded with {agt_rwd} for each living agent")
+            # woods close to bomb reward
+            # if act[agent_inds[i]] == Action.Bomb.value:
+            #     agent_obs = obs[agent_inds[i]]
+            #     agt_rwd += woods_close_to_bomb_reward(agent_obs, agent_obs['position'], agent_obs['blast_strength'], agent_ids)
+            # only living agent gets winning rewards
+            if done:
+                if won:
+                    agt_rwd = 0.5
+                    logging.info(f"Win rewarded with {agt_rwd} for each living agent")
 
-        # draw reward for living agents
-        if steps_n == p.max_steps:
-            done = True
-            if alive:
-                agt_rwd = 0.0
-                logging.info(f"Draw rewarded with {agt_rwd} for each living agent")
+            # draw reward for living agents
+            if steps_n == p.max_steps:
+                done = True
+                if alive:
+                    agt_rwd = 0.0
+                    logging.info(f"Draw rewarded with {agt_rwd} for each living agent")
 
-        # Negative reward if agent died this iteration
-        if died:
-            agt_rwd = -0.5
-            logging.info(f"Death of agent {index} rewarded with {agt_rwd}")
+            # Negative reward if agent died this iteration
+            if died:
+                agt_rwd = -0.5
+                logging.info(f"Death of agent {index} rewarded with {agt_rwd}")
 
-        rewards.append(agt_rwd)
-    return rewards
+            rewards.append(agt_rwd)
+        return rewards
