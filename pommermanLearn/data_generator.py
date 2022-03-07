@@ -141,11 +141,11 @@ class DataGeneratorPommerman:
         logging.info(f"Wins: {self.res}, Ties: {self.ties}, Avg. Reward: {average_reward}, Avg. Steps: {average_steps}")
         if p.reward_func == "SkynetReward":
             logging.info(
-                f"Skynet Reward split agent 1: Kills: {self.reward_log[0][0]}, Items: {self.reward_log[0][1]},"
-                        f" Steps(FIFO): {self.reward_log[0][2]}, Bombs: {self.reward_log[0][3]}, Deaths: {self.reward_log[0][4]}")
+                f"Skynet Reward split agent 1: Win/loss: {self.reward_log[0][3]}, Kills: {self.reward_log[0][0]}, Items: {self.reward_log[0][1]},"
+                        f" Steps(FIFO): {self.reward_log[0][2]}, Deaths: {self.reward_log[0][4]}")
             logging.info(
-                f"Skynet Reward split agent 2: Kills: {self.reward_log[1][0]}, Items: {self.reward_log[1][1]},"
-                        f" Steps(FIFO): {self.reward_log[1][2]}, Bombs: {self.reward_log[1][3]}, Deaths: {self.reward_log[1][4]}")
+                f"Skynet Reward split agent 2: Win/loss: {self.reward_log[1][3]}, Kills: {self.reward_log[1][0]}, Items: {self.reward_log[1][1]},"
+                        f" Steps(FIFO): {self.reward_log[1][2]}, Deaths: {self.reward_log[1][4]}")
         logging.info(self.act_counts)
         self.logger.write(self.res, self.ties, average_reward)
         # TODO: Change the return type to something more readable outside the function
