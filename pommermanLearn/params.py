@@ -69,7 +69,7 @@ item_rwd = 0.003
 #models.py
 memory_method = 'forgetting' # one of 'counting', 'forgetting'
 forgetfullness=0.01
-normalize_steps=False
+normalize_steps=True
 
 def validate():
     if use_memory: assert p_observable and not crop_fog

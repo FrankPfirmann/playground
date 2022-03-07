@@ -267,7 +267,7 @@ class DataGeneratorPommerman:
         for augmentor in self.augmentors:
             augmented = augmentor.augment(*transition)
             for a in augmented:
-                transitions.append((transformer(a[0]), a[1], a[2] * 100, transformer(a[3]), a[4]))
+                transitions.append((transformer(a[0]), a[1], a[2], transformer(a[3]), a[4]))
         return transitions
 
 
