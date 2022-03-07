@@ -39,7 +39,7 @@ nsteps = 10
 
 
 #train_agent.py
-communicate=True
+communicate=1
 use_memory=True
 
 #dqn.py

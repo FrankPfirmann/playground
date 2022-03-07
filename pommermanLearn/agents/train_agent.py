@@ -100,7 +100,7 @@ class TrainAgent(agents.BaseAgent):
         :param obs: observation dict the agent receives
         '''
         self.memory.update(obs)
-        if self.communicate:
+        if self.communicate > 0:
             self.do_communication(obs)
         views = self.memory.get_view(obs["position"], centralized=p.centralize_planes)
         self.obs = self.transformer(obs, pre_transformed=views)
@@ -117,7 +117,7 @@ class TrainAgent(agents.BaseAgent):
             self.prev_pos = obs["position"]
             self.memory.set_agent_spawns(obs["teammate"].value)
 
-        if "message" in obs.keys():
+        if "message" in obs.keys() and self.communicate == 1:
             self.alter_memory(obs)
         self.calc_send_msg(obs)
         self.prev_pos = obs["position"]
@@ -146,14 +146,28 @@ class TrainAgent(agents.BaseAgent):
         current enemy is always alternating between the two agents
         :param obs: agent made observation
         '''
-        pos_change_message = self._get_position_change(obs["position"], self.prev_pos)
-        view = crop_view(centralize_view(obs['board'], obs["position"], padding=0), 4)
-        current_enemy_send = self.enemy_ids[0] if self.transmit_first else self.enemy_ids[1]
 
-        enemy_message = 0 if current_enemy_send not in view else _region_of_enemy(view, current_enemy_send) + 1
+        if self.communicate == 1:
+            pos_change_message = self._get_position_change(obs["position"], self.prev_pos)
+            view = crop_view(centralize_view(obs['board'], obs["position"], padding=0), 4)
+            current_enemy_send = self.enemy_ids[0] if self.transmit_first else self.enemy_ids[1]
 
-        self.next_msg = _serialize_msg(pos_change_message, enemy_message)
+            enemy_message = 0 if current_enemy_send not in view else _region_of_enemy(view, current_enemy_send) + 1
+
+            self.next_msg = _serialize_msg(pos_change_message, enemy_message)
+
+        elif self.communicate == 2:
+            current_position = obs['position']
+            board_center = (5, 5)
+            dist_center = (np.array(board_center) - np.array(current_position)) + np.array([4, 4])
+
+            dist_center[0] = 0 if dist_center[0] < 0 else int(dist_center[0])
+            dist_center[1] = 7 if dist_center[1] > 7 else int(dist_center[1])
+
+            self.next_msg = tuple(dist_center)
+
         self.transmit_first = not self.transmit_first
+
 
     def act(self, obs, action_space):
         #filter before since it only works with the original observation

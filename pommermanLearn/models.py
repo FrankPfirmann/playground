@@ -34,7 +34,9 @@ class Pommer_Q(nn.Module):
     def __init__(self, p_central, board_transform_func, support=None):
         super(Pommer_Q, self).__init__()
         self.conv_out_dim = 64
+        self.communicate = p.communicate
         self.planes_num = 26 if p.use_memory else 25
+        self.planes_num = 28 if p.communicate == 2 and p.use_memory else self.planes_num
         self.padding = 1
         self.first_hidden_out_dim = 256
         self.memory = None
@@ -165,6 +167,11 @@ class Pommer_Q(nn.Module):
                   self._init_with_value(float(enemy_dead[1]), board_size),
                   self._init_with_value(float(teammate_dead), board_size),
                   ]
+
+            if self.communicate == 2:
+                fl += [self._init_with_value(obs['message'][0], board_size),
+                       self._init_with_value(obs['message'][1], board_size)]
+
             fl = np.array(fl)
             board = np.vstack((board, fl))
             return [board]
