@@ -102,6 +102,7 @@ def train_dqn(dqn1=None, dqn2=None, num_iterations=p.num_iterations, episodes_pe
         dqn2.set_exploration(exploration)
         # The agents wins are stored at index 0 i the data_generator
         win_ratio = res[0] / (sum(res) + ties)
+        tie_ratio = ties / (sum(res) + ties)
 
         # fit models on generated data
         total_loss = 0
@@ -138,6 +139,7 @@ def train_dqn(dqn1=None, dqn2=None, num_iterations=p.num_iterations, episodes_pe
             writer.add_scalar('Avg. Reward/train', avg_rwd, i)
             writer.add_scalar('Win Ratio/train', win_ratio, i)
             writer.add_scalar('Avg. Steps/train', avg_steps, i)
+            writer.add_scalar('Tie ratio/train', tie_ratio, i)
             writer.add_scalars('Normalized #Actions_1/train', {
                 '#Stop': act_counts[0][Action.Stop.value],
                 '#Up': act_counts[0][Action.Up.value],
@@ -175,10 +177,12 @@ def train_dqn(dqn1=None, dqn2=None, num_iterations=p.num_iterations, episodes_pe
                                                                                 'train', max_steps, render=p.render_tests, test=True)
             
             test_win_ratio = test_res[0] / (sum(test_res) + test_ties)
+            test_tie_ratio = test_ties / (sum(test_res) + test_ties)
 
             writer.add_scalar('Avg. Test Reward/train', test_avg_rwd, test_i)
             writer.add_scalar('Test Win Ratio/train', test_win_ratio, test_i)
             writer.add_scalar('Avg. Test Steps/train', test_avg_steps, test_i)
+            writer.add_scalar('Avg. Test Steps/train', test_tie_ratio, test_i)
 
             dqn1.set_train(True)
             dqn2.set_train(True)
