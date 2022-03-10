@@ -142,10 +142,7 @@ class ReplayBuffer:
     def update_priorities(self, indexes, priorities):
         ''' update priorities of transitions'''
         for idx, priority in zip(indexes, priorities):
-            if priority == 0.0:
-                priority = 1e-7
-            else:
-                priority = abs(priority.item())
+            priority = abs(priority.item()) + 1e-7
             self.max_priorities = max(self.max_priorities, priority)
             priority_alpha = priority ** self.alpha
             self._set_priority_min(idx, priority_alpha)

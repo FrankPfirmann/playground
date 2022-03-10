@@ -84,6 +84,7 @@ def train_dqn(dqn1=None, dqn2=None, num_iterations=p.num_iterations, episodes_pe
     exploration = p.exploration_noise
     # training loop
 
+    test_i = 0
     for i in range(num_iterations):
         logging.info(f"Iteration {i + 1}/{num_iterations} started")
         iteration_stopwatch = Stopwatch(start=True)
@@ -103,6 +104,7 @@ def train_dqn(dqn1=None, dqn2=None, num_iterations=p.num_iterations, episodes_pe
         dqn2.set_exploration(exploration)
         # The agents wins are stored at index 0 i the data_generator
         win_ratio = res[0] / (sum(res) + ties)
+        tie_ratio = ties / (sum(res) + ties)
 
         # fit models on generated data
         total_loss = 0
@@ -140,6 +142,7 @@ def train_dqn(dqn1=None, dqn2=None, num_iterations=p.num_iterations, episodes_pe
             writer.add_scalar('Avg. Reward/train', avg_rwd, i)
             writer.add_scalar('Win Ratio/train', win_ratio, i)
             writer.add_scalar('Avg. Steps/train', avg_steps, i)
+            writer.add_scalar('Tie ratio/train', tie_ratio, i)
             writer.add_scalars('Normalized #Actions_1/train', {
                 '#Stop': act_counts[0][Action.Stop.value],
                 '#Up': act_counts[0][Action.Up.value],
@@ -174,12 +177,24 @@ def train_dqn(dqn1=None, dqn2=None, num_iterations=p.num_iterations, episodes_pe
                 torch.save(dqn1.q_network.state_dict(), model_save_path + '_1')
                 torch.save(dqn2.q_network.state_dict(), model_save_path + '_2')
                 logging.info("Saved model to: " + model_save_path)
-            data_generator.generate(p.episodes_per_eval, policy1, policy2, enemy, dqn1.q_network.get_transformer(),
-                                    'train', 'train', max_steps, render=p.render_tests, test=True)
+            test_res, test_ties, test_avg_rwd, test_act_counts, test_avg_steps = data_generator.generate(p.episodes_per_eval, policy1, policy2, enemy, 
+                                                                                dqn1.q_network.get_transformer(), 'train', 
+                                                                                'train', max_steps, render=p.render_tests, test=True)
+            
+            test_win_ratio = test_res[0] / (sum(test_res) + test_ties)
+            test_tie_ratio = test_ties / (sum(test_res) + test_ties)
+
+            writer.add_scalar('Avg. Test Reward/train', test_avg_rwd, test_i)
+            writer.add_scalar('Test Win Ratio/train', test_win_ratio, test_i)
+            writer.add_scalar('Avg. Test Steps/train', test_avg_steps, test_i)
+            writer.add_scalar('Avg. Test Steps/train', test_tie_ratio, test_i)
+
             dqn1.set_train(True)
             dqn2.set_train(True)
             logging.debug(f"Test finished after {test_stopwatch.stop()}s")
             logging.info("------------------------")
+            test_i += 1
+
     if not mean_run:
         writer.close()
     return dqn1, dqn2, results_dict
