@@ -203,7 +203,7 @@ def train_dqn(dqn1=None, dqn2=None, num_iterations=p.num_iterations, episodes_pe
 def get_transform_func():
     if p.p_observable and not p.use_memory and p.crop_fog:
         transform_func = transform_observation_partial
-    elif p.p_observable and p.use_memory and not p.crop_fog:
+    elif p.p_observable and not p.crop_fog:
         transform_func = transform_observation_partial_uncropped
     elif p.centralize_planes:
         transform_func = transform_observation_centralized

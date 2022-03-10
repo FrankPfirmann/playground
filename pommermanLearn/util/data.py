@@ -16,15 +16,15 @@ def transform_observation(obs: dict, p_obs: bool=False, centralized: bool=False,
 
     :return: A stack of binary planes
     """
-    if p_obs and not centralized:
-        raise ValueError("Invalid value combination (p_obs=True and centralized=False)")
+    #if p_obs and not centralized:
+        #raise ValueError("Invalid value combination (p_obs=True and centralized=False)")
 
     board = obs['board']
     views = create_bitmaps(board, centralized, obs, p_obs, crop_fog)
 
     transformed = []
     for view in views:
-        if centralized or p_obs:
+        if centralized:
             padding = 1 if view is views[-1] else 0
             view = centralize_view(view, obs['position'], padding=padding) 
         if p_obs and crop_fog:
@@ -203,7 +203,7 @@ def transform_observation_simple(obs):
 
 
 def transform_observation_partial_uncropped(obs):
-    return transform_observation(obs, p_obs=True, centralized=True, crop_fog=False)
+    return transform_observation(obs, p_obs=True, centralized=False, crop_fog=False)
 
 
 def calc_dist(agent_ind, nobs, teammate_ind=-1):
