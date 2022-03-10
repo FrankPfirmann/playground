@@ -9,7 +9,7 @@ import torch
 import sys
 
 from agents.skynet_agents import SmartRandomAgent, SmartRandomAgentNoBomb
-from agents.static_agent import StaticAgent
+from agents.static_agent import StaticAgent, StaticAgentNoBomb
 from agents.train_agent import TrainAgent
 from agents.simple_agent_cautious_bomb import CautiousAgent
 from logger import Logger
@@ -92,6 +92,8 @@ class DataGeneratorPommerman:
                 agent_list[i] = SmartRandomAgent()
             elif agent_str == 'smart_random_no_bomb':
                 agent_list[i] = SmartRandomAgentNoBomb()
+            elif agent_str == 'static_no_bomb':
+                agent_list[i] = StaticAgentNoBomb()
             elif agent_str == 'simple':
                 agent_list[i] = SimpleAgent()
             elif agent_str == 'cautious':
@@ -204,20 +206,22 @@ class DataGeneratorPommerman:
                             if agt.is_alive:
                                 logging.info(f"Draw")
                         # Build original transition
+                        transitions = []
                         if p.use_memory:
                             agt_obs = agt.get_memory_view()
                             agt.update_memory(nobs[agt_idx])
                             agt_nobs = agt.get_memory_view()
                             act_no_msg = act[agt_idx][0] if p.communicate else act[agt_idx]
                             transition = (agt_obs, act_no_msg, agt_rwd, \
-                                            agt_nobs, done)
+                                            agt_nobs, done or not agt.is_alive)
+                            transitions.append(transition)
                         else:
                             transition = (transformer(obs[agt_idx]), act[agt_idx], agt_rwd, \
-                                            transformer(nobs[agt_idx]), done)
-                        transitions = [transition]
+                                            transformer(nobs[agt_idx]), done or not agt.is_alive)
+                            transitions.append(transition)
 
                         # Apply data augmentation
-                        transitions.extend(self.augment_transition((obs[agt_idx], act[agt_idx], agt_rwd, nobs[agt_idx], not was_alive), transformer))
+                        transitions.extend(self.augment_transition((obs[agt_idx], act[agt_idx], agt_rwd, nobs[agt_idx], done or not agt.is_alive), transformer))
 
                         # Add everything to the buffer
                         if not test:

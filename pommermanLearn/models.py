@@ -18,25 +18,21 @@ from util.data import transform_observation, transform_observation_centralized
 from util.data import merge_views, crop_view, merge_views_life
 
 
-## takes in a module and applies the specified weight initialization
-
-
-def init_weights(m):
-    if isinstance(m, nn.Linear):
-        m.weight.data.fill_(0.005)
-        m.bias.data.fill_(0.0)
-    elif isinstance(m, nn.Conv2d):
-        m.weight.data.fill_(0.01)
-        m.bias.data.fill_(0.0)
+def _init_with_value(value, board_size):
+    a = np.zeros((board_size, board_size))
+    a.fill(value)
+    return a
 
 
 class Pommer_Q(nn.Module):
-    def __init__(self, p_central, board_transform_func, support=None):
+    def __init__(self, board_transform_func, support=None):
         super(Pommer_Q, self).__init__()
         self.conv_out_dim = 64
         self.planes_num = 26 if p.use_memory else 25
         self.padding = 1
         self.first_hidden_out_dim = 256
+        self.adv_hidden_dim = 256
+        self.conv_channels = 32
         self.memory = None
         self.support = support
         self.atom_size = p.atom_size if p.categorical else 1
@@ -44,29 +40,29 @@ class Pommer_Q(nn.Module):
         self.noisy_layers = []
         self.dueling = p.dueling
         self.categorical = p.categorical
-        self.value_1 = self.linear_layer(self.first_hidden_out_dim, 128, p.noisy) if self.dueling else None
-        self.value_2 = self.linear_layer(128, self.atom_size, p.noisy) if self.dueling else None
-        self.advantage_1 = self.linear_layer(self.first_hidden_out_dim, 128, p.noisy)
-        self.advantage_2 = self.linear_layer(128, 6 * self.atom_size, p.noisy)
+        self.value_1 = self.linear_layer(self.first_hidden_out_dim, self.adv_hidden_dim, p.noisy) if self.dueling else None
+        self.value_2 = self.linear_layer(self.adv_hidden_dim, self.atom_size, p.noisy) if self.dueling else None
+        self.advantage_1 = self.linear_layer(self.first_hidden_out_dim, self.adv_hidden_dim, p.noisy)
+        self.advantage_2 = self.linear_layer(self.adv_hidden_dim, 6 * self.atom_size, p.noisy)
 
         self.conv = nn.Sequential(
-            nn.Conv2d(in_channels=self.planes_num, out_channels=64, kernel_size=(3, 3), stride=(1, 1)), \
+            nn.Conv2d(in_channels=self.planes_num, out_channels=self.conv_channels, kernel_size=(3, 3), stride=(1, 1)), \
             nn.ReLU(inplace=True),
-            nn.Conv2d(in_channels=64, out_channels=64, kernel_size=(3, 3), stride=(1, 1)),
+            nn.BatchNorm2d(self.conv_channels),
+            nn.Conv2d(in_channels=self.conv_channels, out_channels=self.conv_channels, kernel_size=(3, 3), stride=(1, 1)),
             nn.ReLU(inplace=True),
-           # nn.MaxPool2d((2,2), stride=(1,1)),
-            nn.Conv2d(in_channels=64, out_channels=64, kernel_size=(3, 3), stride=(1, 1)),
+            nn.Conv2d(in_channels=self.conv_channels, out_channels=self.conv_channels, kernel_size=(3, 3), stride=(1, 1)),
             nn.ReLU(inplace=True),
-            nn.Conv2d(in_channels=64, out_channels=64, kernel_size=(3, 3), stride=(1, 1)),
+            nn.BatchNorm2d(self.conv_channels),
+            nn.Conv2d(in_channels=self.conv_channels, out_channels=self.conv_channels, kernel_size=(3, 3), stride=(1, 1)),
             nn.ReLU(inplace=True),
-            nn.Flatten()
-        )
+            nn.Flatten())
         self.board_transform_func = board_transform_func
 
-        self.hidden_1 = nn.Sequential(
-            nn.Linear(in_features=576, out_features=self.first_hidden_out_dim),
-            nn.ReLU()
-
+        self.hidden_linear = nn.Sequential(
+            nn.Linear(in_features=288, out_features=self.first_hidden_out_dim),
+            nn.ReLU(),
+            nn.BatchNorm1d(self.first_hidden_out_dim)
         )
         self.value_stream = nn.Sequential(
             self.value_1,
@@ -98,7 +94,7 @@ class Pommer_Q(nn.Module):
     def get_features(self, obs):
         x1 = obs[0]
         x1 = self.conv(x1)
-        hidden_out = self.hidden_1(x1)
+        hidden_out = self.hidden_linear(x1)
         return hidden_out
 
     def get_distribution(self, obs):
@@ -129,11 +125,6 @@ class Pommer_Q(nn.Module):
         for layer in self.noisy_layers:
             layer.reset_noise()
 
-    def _init_with_value(self, value, board_size):
-        a = np.zeros((board_size, board_size))
-        a.fill(value)
-        return a
-
     def get_transformer(self) -> Callable:
         """
         Return a callable for input transformation.
@@ -154,16 +145,16 @@ class Pommer_Q(nn.Module):
             board_size = board.shape[1]
 
             step_count = obs['step_count'] if not p.normalize_steps else obs['step_count']/p.max_steps
-            fl = [self._init_with_value(step_count, board_size),
-                  self._init_with_value(obs['position'][0], board_size),
-                  self._init_with_value(obs['position'][1], board_size),
-                  self._init_with_value(obs['ammo'], board_size),
-                  self._init_with_value(obs['can_kick'], board_size),
-                  self._init_with_value(obs['blast_strength'], board_size),
-                  self._init_with_value(float(self_dead), board_size),
-                  self._init_with_value(float(enemy_dead[0]), board_size),
-                  self._init_with_value(float(enemy_dead[1]), board_size),
-                  self._init_with_value(float(teammate_dead), board_size),
+            fl = [_init_with_value(step_count, board_size),
+                  _init_with_value(obs['position'][0], board_size),
+                  _init_with_value(obs['position'][1], board_size),
+                  _init_with_value(obs['ammo'], board_size),
+                  _init_with_value(obs['can_kick'], board_size),
+                  _init_with_value(obs['blast_strength'], board_size),
+                  _init_with_value(float(self_dead), board_size),
+                  _init_with_value(float(enemy_dead[0]), board_size),
+                  _init_with_value(float(enemy_dead[1]), board_size),
+                  _init_with_value(float(teammate_dead), board_size),
                   ]
             fl = np.array(fl)
             board = np.vstack((board, fl))

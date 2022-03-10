@@ -87,6 +87,8 @@ def train_dqn(dqn1=None, dqn2=None, num_iterations=p.num_iterations, episodes_pe
     for i in range(num_iterations):
         logging.info(f"Iteration {i + 1}/{num_iterations} started")
         iteration_stopwatch = Stopwatch(start=True)
+        dqn1.q_network.eval()
+        dqn2.q_network.eval()
         policy1 = dqn1.get_policy()
         policy2 = dqn2.get_policy()
 
@@ -108,6 +110,8 @@ def train_dqn(dqn1=None, dqn2=None, num_iterations=p.num_iterations, episodes_pe
 
         def train_episode(dqn, ind):
             added_loss = 0
+            dqn.q_network.train()
+            dqn.q_target_network.train()
             for _ in range(p.gradient_steps_per_iter):
                 batch = data_generator.get_batch_buffer(p.batch_size, ind)
                 if p.use_nstep:
@@ -120,7 +124,6 @@ def train_dqn(dqn1=None, dqn2=None, num_iterations=p.num_iterations, episodes_pe
                     data_generator.update_priorities(indexes, td_error, ind)
                 dqn.reset_net_noise()
             return added_loss
-
         total_loss += train_episode(dqn1, 0)
         total_loss += train_episode(dqn2, 1)
         avg_loss = total_loss / p.gradient_steps_per_iter
@@ -162,6 +165,8 @@ def train_dqn(dqn1=None, dqn2=None, num_iterations=p.num_iterations, episodes_pe
             logging.info("Testing model")
             dqn1.set_train(False)
             dqn2.set_train(False)
+            dqn1.q_network.eval()
+            dqn2.q_network.eval()
             policy1 = dqn1.get_policy()
             policy2 = dqn2.get_policy()
             if not mean_run:
@@ -209,8 +214,8 @@ def setup_logger(log_level=logging.INFO):
 def create_dqn(path=None):
     transform_func = get_transform_func()
     support = torch.linspace(p.v_min, p.v_max, p.atom_size).to(p.device)
-    q1 = Pommer_Q(p.p_observable or p.centralize_planes, transform_func, support=support)
-    q_target1 = Pommer_Q(p.p_observable or p.centralize_planes, transform_func, support=support)
+    q1 = Pommer_Q(transform_func, support=support)
+    q_target1 = Pommer_Q(transform_func, support=support)
     q1.to(p.device)
     q_target1.to(p.device)
 
