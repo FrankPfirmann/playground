@@ -35,6 +35,11 @@ class PommermanJSONEncoder(json.JSONEncoder):
             return [space.n for space in obj.spaces]
         return json.JSONEncoder.default(self, obj)
 
+def lay_at_all_direction(board, size, i, j, value):
+    board[j, i] = value
+    board[size - 1 -j, i] = value
+    board[i, j] = value
+    board[i, size - 1 -j] = value
 
 def make_custom_board():
     '''custom grid like map'''
@@ -42,11 +47,6 @@ def make_custom_board():
     board = np.ones((size,
                      size)).astype(np.uint8) * constants.Item.Passage.value
 
-    def lay_at_all_direction(board, size, i, j, value):
-        board[j, i] = value
-        board[size - 1 -j, i] = value
-        board[i, j] = value
-        board[i, size - 1 -j] = value
     board[1, 1] = constants.Item.Agent0.value
     board[size - 2, 1] = constants.Item.Agent1.value
     board[size - 2, size - 2] = constants.Item.Agent2.value
@@ -66,11 +66,25 @@ def make_custom_board():
     for i in range(1, size-1, 2):
         lay_at_all_direction(board, size, i, 3, constants.Item.Wood.value)
 
-    board[2, 2] = constants.Item.Passage.value
-    board[size - 3, 2] = constants.Item.Passage.value
-    board[size - 3, size - 3] = constants.Item.Passage.value
-    board[2, size - 3] = constants.Item.Passage.value
     return board
+
+
+def make_dodge_board():
+    size = 9
+    board = np.ones((size,
+                     size)).astype(np.uint8) * constants.Item.Rigid.value
+
+    board[1, 1] = constants.Item.Agent0.value
+    board[size - 2, 1] = constants.Item.Agent1.value
+    board[size - 2, size - 2] = constants.Item.Agent2.value
+    board[1, size - 2] = constants.Item.Agent3.value
+    lay_at_all_direction(board,size, 1, 2, constants.Item.Passage.value)
+    lay_at_all_direction(board,size, 2, 1, constants.Item.Passage.value)
+    lay_at_all_direction(board,size, 2, 2, constants.Item.Passage.value)
+    lay_at_all_direction(board,size, size-3, 2, constants.Item.Passage.value)
+    lay_at_all_direction(board,size, size-3, 1, constants.Item.Passage.value)
+    return board
+
 def make_board(size, num_rigid=0, num_wood=0, num_agents=4):
     """Make the random but symmetric board.
 
@@ -95,9 +109,10 @@ def make_board(size, num_rigid=0, num_wood=0, num_agents=4):
     Returns:
       board: The resulting random board.
     """
-    if num_rigid < 0:
+    if num_rigid == -1:
         return make_custom_board()
-
+    if num_rigid == -2:
+        return make_dodge_board()
     def lay_wall(value, num_left, coordinates, board):
         '''Lays all of the walls on a board'''
         x, y = random.sample(coordinates, 1)[0]

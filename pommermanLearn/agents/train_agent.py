@@ -48,6 +48,12 @@ def _deserialize_msg(msg):
     enemy_msg = msg_total % 10
     return pos_change, enemy_msg
 
+def _bomb_juke_actions(obs):
+    valid_actions = [i for i in range(0,5)]
+    if len(list(zip(*np.nonzero(obs['bomb_life'])))) == 0:
+        valid_actions = [5]
+    return valid_actions
+
 
 class TrainAgent(agents.BaseAgent):
     """
@@ -63,7 +69,7 @@ class TrainAgent(agents.BaseAgent):
         super(TrainAgent, self).__init__()
         self.policy = policy
 
-        bsize = 9 if p.env == "custom-v2" else 11
+        bsize = 9 if p.env.startswith("custom") else 11
         self.init = True
         self.prev_pos = None
         self.teammate_pos = None
