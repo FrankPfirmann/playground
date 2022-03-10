@@ -64,7 +64,7 @@ teamkill_rwd = -0.5
 death_rwd = -0.5
 win_loss_bonus = 0.5
 step_rwd = 0.001
-item_rwd = 0.003
+item_rwd = 0.03
 
 #models.py
 memory_method = 'forgetting' # one of 'counting', 'forgetting'
