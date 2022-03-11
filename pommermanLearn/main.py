@@ -2,8 +2,8 @@
 # solve error #15
 import os
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
-if os.getuid() == 1000:
-    os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+# if os.getuid() == 1000:
+#     os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 import argparse
 import logging
 import random
@@ -187,7 +187,7 @@ def train_dqn(dqn1=None, dqn2=None, num_iterations=p.num_iterations, episodes_pe
             writer.add_scalar('Avg. Test Reward/train', test_avg_rwd, test_i)
             writer.add_scalar('Test Win Ratio/train', test_win_ratio, test_i)
             writer.add_scalar('Avg. Test Steps/train', test_avg_steps, test_i)
-            writer.add_scalar('Avg. Test Steps/train', test_tie_ratio, test_i)
+            writer.add_scalar('Avg. Test Ties/train', test_tie_ratio, test_i)
 
             dqn1.set_train(True)
             dqn2.set_train(True)
