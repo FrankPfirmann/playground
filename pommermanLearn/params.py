@@ -15,9 +15,9 @@ p_observable = True
 crop_fog = False
 
 #rainbow_dqn
-double_q = False
+double_q = True
 
-prioritized_replay = False
+prioritized_replay = True
 beta = 0 # determines how replays should be weighted (beta==0 --> all weights are 1, beta==1 --> influence of replays is fully normalized)
 device = torch.device("cpu") if not torch.cuda.is_available() else torch.device("cuda")
 run_name = datetime.now().strftime("%Y%m%dT%H%M%S")
@@ -30,17 +30,17 @@ atom_size = 51
 v_min = -1
 v_max = 1
 
-dueling = False
+dueling = True
 #noisy layers should replace epsilon greedy exploration
-noisy = False
+noisy = True
 #n-step
-use_nstep = False
+use_nstep = True
 nsteps = 10
 
 
 #train_agent.py
-communicate = 0
-use_memory = False
+communicate = 1
+use_memory = True
 
 #dqn.py
 seed = 1
