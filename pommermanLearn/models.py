@@ -160,8 +160,8 @@ class Pommer_Q(nn.Module):
                   ]
 
             if self.communicate == 2:
-                fl += [self._init_with_value(obs['message'][0], board_size),
-                       self._init_with_value(obs['message'][1], board_size)]
+                fl += [_init_with_value(obs['message'][0], board_size),
+                       _init_with_value(obs['message'][1], board_size)]
 
             fl = np.array(fl)
             board = np.vstack((board, fl))
