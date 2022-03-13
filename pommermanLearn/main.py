@@ -270,7 +270,7 @@ def main(args):
 
     p.validate()
 
-    dqn1, dqn2, _ = train_dqn(dqn1, dqn2, num_iterations=10000, enemy='static:0', augmentors=[])
+    dqn1, dqn2, _ = train_dqn(dqn1, dqn2, num_iterations=p.num_iterations, enemy='static:0', augmentors=[])
 
 
 def do_mean_run(mean_run_n, mean_num_iterations):
