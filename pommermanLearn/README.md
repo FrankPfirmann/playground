@@ -4,7 +4,7 @@ This repository contains all scripts used for training and testing agents in the
 
 ## Setup
 
-Before you can run any of the training scripts, you have to install Python (3.7) and all required libraries first. Just navigate into the cloned github repository with:
+Before you can run any of the training scripts, you have to install Python (3.6) and all required libraries first. Just navigate into the cloned github repository with:
  `cd playground` and execute `pip install -e .[extras]` to install Pommerman and all additional dependencies.
 
 ## How to train an agent:
