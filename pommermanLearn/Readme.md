@@ -54,11 +54,10 @@ If you want to evaluate a trained model you can just run the `test_model_seperat
 | crop_fog                | Whether to crop the fog out of input                         |
 | double_q                | Whether to use double den                                    |
 | prioritized_replay      | Whether to use prioritized replay                            |
-| beta                    | Determines how replays should be weighted (beta==0 --> all weights are 1, beta==1 --> influence of replays is fully normalized) |
+| beta                    | Determines how replays should be weighted in prioritized replay |
 | device                  | Device to use with pytorch                                   |
 | run_name                | Name of the folder where logs are saved                      |
-| alpha                   |                                                              |
-| beta                    |                                                              |
+| alpha                   | Determines how strongly prioritized replay is used           |
 | categorical             | Whether to use categorical DQN                               |
 | atom_size               | Number of atoms building the support vector used  in Categorical DQN                                                            |
 | v_min                   | Minimum expected reward (for building the support vector)                                                        |
@@ -90,3 +89,12 @@ If you want to evaluate a trained model you can just run the `test_model_seperat
 | forgetfullness          | Percentage decrease of confidence in the memory                                                             |
 | normalize_steps         | Whether to normalize steps                                   |
 
+## Code References
+
+https://github.com/Curt-Park/rainbow-is-all-you-need (Used for Categorical DQN, Noisy Layers, Multi-Step Learning) (dqn.py, models.py, replay_buffer.py))
+
+https://github.com/KaleabTessera/DQN-Atari (Some parts of our DQN implementation are based on this)
+
+https://github.com/BorealisAI/pommerman-baseline (Action filter and some agent are taken from this) (action_prune.py, skynet_agents.py)
+
+https://nn.labml.ai/rl/dqn/replay_buffer.html (Implementation of Prioritized Replay Buffer is based on this)
