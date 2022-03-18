@@ -14,11 +14,9 @@ from agents.train_agent import TrainAgent
 from agents.simple_agent_cautious_bomb import CautiousAgent
 from logger import Logger
 import params as p
-from util.analytics import Stopwatch
 from util.bomb_tracker import BombTracker
-from util.rewards import staying_alive_reward, bomb_reward, skynet_reward, woods_close_to_bomb_reward
+from util.rewards import staying_alive_reward, bomb_reward, skynet_reward
 from util.replay_buffer import ReplayBuffer
-from util.analytics import Stopwatch
 
 
 class DataGeneratorPommerman:

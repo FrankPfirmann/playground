@@ -17,7 +17,7 @@ class ReplayBuffer:
             self.max_priorities = 1.0
             self.sizes = 0
 
-        self.buffers = []
+        self.buffer = []
         self.idxs = 0
         self.n_step_buffer = deque(maxlen=n_step)
         self.n_step = n_step
@@ -41,10 +41,10 @@ class ReplayBuffer:
 
         obs_ins, act_ins = self.n_step_buffer[0][:2]
 
-        if len(self.buffers) < self.replay_size:
-            self.buffers.append([obs_ins, act_ins, [rwd_ins], nobs_ins, [done_ins]])
+        if len(self.buffer) < self.replay_size:
+            self.buffer.append([obs_ins, act_ins, [rwd_ins], nobs_ins, [done_ins]])
         else:
-            self.buffers[self.idxs] = [obs_ins, act_ins, [rwd_ins], nobs_ins, [done_ins]]
+            self.buffer[self.idxs] = [obs_ins, act_ins, [rwd_ins], nobs_ins, [done_ins]]
 
         if p.prioritized_replay:
             # set priority of new transitions to max_priority
@@ -104,7 +104,7 @@ class ReplayBuffer:
     def get_batch_buffer(self, size, beta=p.beta):
         ''' sample transitions from buffer (including weights and indexes with prioritized replay '''
         if not p.prioritized_replay:
-            indexed_samples = random.sample(list(enumerate(self.buffers)), size)
+            indexed_samples = random.sample(list(enumerate(self.buffer)), size)
             indexes, samples = zip(*indexed_samples)
             weights = np.ones(shape=size, dtype=np.float32)
             batch = list(zip(*samples))
@@ -133,7 +133,7 @@ class ReplayBuffer:
 
             # get sample transitions
             # transitions = list(zip(*np.array(self.buffers[agent_num])[samples['indexes']]))
-            t = itemgetter(*samples['indexes'])(self.buffers)
+            t = itemgetter(*samples['indexes'])(self.buffer)
             transitions = list(zip(*np.array(t)))
             return np.array(transitions[0]), np.array(transitions[1]), np.array(transitions[2]), np.array(
                 transitions[3]), np.array(transitions[4]), \
@@ -149,6 +149,6 @@ class ReplayBuffer:
             self._set_priority_sum(idx, priority_alpha)
 
     def get_batch_from_indices(self, idxs):
-        samples = list(zip(*np.array(itemgetter(*idxs)(self.buffers))))
+        samples = list(zip(*np.array(itemgetter(*idxs)(self.buffer))))
         return np.array(samples[0]), np.array(samples[1]), np.array(samples[2]), np.array(
             samples[3]), np.array(samples[4])

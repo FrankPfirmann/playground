@@ -11,11 +11,9 @@ import params as p
 class Pommer_Q(nn.Module):
     def __init__(self, board_transform_func, support=None):
         super(Pommer_Q, self).__init__()
-        self.conv_out_dim = 64
         self.communicate = p.communicate
         self.planes_num = 26 if not ((p.centralize_planes and not p.p_observable) or p.crop_fog) else 25
         self.planes_num = 28 if p.communicate == 2 and p.use_memory else self.planes_num
-        self.padding = 1
         self.first_hidden_out_dim = 256
         self.adv_hidden_dim = 256
         self.conv_channels = 32

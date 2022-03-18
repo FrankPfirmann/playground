@@ -2,8 +2,6 @@
 # solve error #15
 import os
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
-# if os.getuid() == 1000:
-#     os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 import argparse
 import logging
 import random
@@ -19,10 +17,6 @@ from data_augmentation import DataAugmentor_v1
 from data_generator import DataGeneratorPommerman
 from dqn import DQN
 from models.pommer_q import Pommer_Q
-from models.pommer_q_embedding_mlp import PommerQEmbeddingMLP
-from models.pommer_q_embedding_rnn import PommerQEmbeddingRNN
-from models.pommer_linear_autoencoder import PommerLinearAutoencoder
-from models.pommer_conv_autoencoder import PommerConvAutoencoder
 from util.analytics import Stopwatch
 from util.data import transform_observation_simple, transform_observation_partial, transform_observation_centralized, transform_observation_partial_uncropped
 
@@ -43,22 +37,6 @@ def init_result_dict(length):
 
 def train_dqn(dqn1=None, dqn2=None, num_iterations=p.num_iterations, episodes_per_iter=p.episodes_per_iter,
               augmentors=[], enemy='static:0', max_steps=p.max_steps, mean_run=False):
-
-    if p.env == 'OneVsOne-v0':
-        board_size = 8
-    else:
-        board_size = 11
-    get_transform_func()
-    # LSTM model with object embeddings:
-    """
-    path="./data/models/PommerConvAutoEncoder-64-db16e0d.pth"
-    embedding_model = PommerConvAutoencoder(embedding_dims=64)
-    embedding_model.load_state_dict(torch.load(path))
-    embedding_model.eval() 
-    embedding_model.mode='encode'
-    q_target = PommerQEmbeddingRNN(embedding_model)
-    q = PommerQEmbeddingRNN(embedding_model)
-    """
 
     # initialize DQN and data generator
     if dqn1 is None:
@@ -272,7 +250,12 @@ def main(args):
     dqn1, dqn2, _ = train_dqn(dqn1, dqn2, num_iterations=p.num_iterations, enemy='static:0', augmentors=[])
 
 
-def do_mean_run(mean_run_n, mean_num_iterations):
+def mean_run(mean_run_n, mean_num_iterations):
+    '''
+    Start multiple different runs and return the average written values
+    :param mean_run_n:  number of runs
+    :param mean_num_iterations: number of iterations in each run
+    '''
     mean_dict = init_result_dict(mean_num_iterations)
     for i in range(0, mean_run_n):
         _, _, res = train_dqn(num_iterations=mean_num_iterations, enemy='static:0', augmentors=[], mean_run=True)

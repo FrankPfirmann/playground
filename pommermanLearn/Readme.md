@@ -6,6 +6,7 @@ This repo contains all scripts used for training and testing agents in the Pomme
 
 Before you can run any of the training scripts, you have to install all required libraries first. Just navigate into the cloned github repo with:
  `cd playground` and execute `pip install -e .` to install the needed libraries.
+Installing`tensorboard`is also necessary.
 
 ## How to train an agent:
 
@@ -40,53 +41,61 @@ If you want to evaluate a trained model you can just run the `test_model_seperat
 
 ## Table with all hyperparameters and their meaning
 
-| Variable                | Meaning                                         |
-| ----------------------- | ----------------------------------------------- |
-| num_iterations          | Number of training iterations                   |
-| episodes_per_iter       | Number of episodes per iteration                |
-| gradient_steps_per_iter | Number of gradient steps per iteration          |
-| batch_size              | Batch size for training                         |
-| episodes_per_eval       | Number of episodes to run for evaluation        |
-| intermediate_test       | After how many iterations an evaluation is done |
-| centralize_planes       | Whether the planes are centralized on the agent |
-| render_tests            | Whether to render the tests during evaluation   |
-| env                     | Environment name to use for training            |
-| crop_fog                |                                                 |
-| double_q                |                                                 |
-| prioritized_replay      |                                                 |
-| beta                    |                                                 |
-| device                  |                                                 |
-| run_name                |                                                 |
-| alpha                   |                                                 |
-| beta                    |                                                 |
-| categorical             |                                                 |
-| atom_size               |                                                 |
-| v_min                   |                                                 |
-| v_max                   |                                                 |
-| dueling                 |                                                 |
-| noisy                   |                                                 |
-| use_nstep               |                                                 |
-| nsteps                  |                                                 |
-| communicate             |                                                 |
-| use_memory              |                                                 |
-| seed                    |                                                 |
-| gamma                   |                                                 |
-| tau                     |                                                 |
-| lr_q                    |                                                 |
-| exploration_noise       |                                                 |
-| set_position            |                                                 |
-| replay_size             |                                                 |
-| max_steps               |                                                 |
-| reward_func             |                                                 |
-| fifo_size               |                                                 |
-| kill_rwd                |                                                 |
-| teamkill_rwd            |                                                 |
-| death_rwd               |                                                 |
-| win_loss_bonus          |                                                 |
-| step_rwd                |                                                 |
-| item_rwd                |                                                 |
-| bomb_tracker            |                                                 |
-| memory_method           |                                                 |
-| forgetfullness          |                                                 |
-| normalize_steps         |                                                 |
+| Variable                | Meaning                                                      |
+| ----------------------- | ------------------------------------------------------------ |
+| num_iterations          | Number of training iterations                                |
+| episodes_per_iter       | Number of episodes per iteration                             |
+| gradient_steps_per_iter | Number of gradient steps per iteration                       |
+| batch_size              | Batch size for training                                      |
+| episodes_per_eval       | Number of episodes to run for evaluation                     |
+| intermediate_test       | After how many iterations an evaluation is done              |
+| centralize_planes       | Whether the planes are centralized on the agent              |
+| render_tests            | Whether to render the tests during evaluation                |
+| env                     | Environment name to use for training                         |
+| crop_fog                | Whether to crop the fog out of input                         |
+| double_q                | Whether to use double den                                    |
+| prioritized_replay      | Whether to use prioritized replay                            |
+| beta                    | Determines how replays should be weighted in prioritized replay |
+| device                  | Device to use with pytorch                                   |
+| run_name                | Name of the folder where logs are saved                      |
+| alpha                   | Determines how strongly prioritized replay is used           |
+| categorical             | Whether to use categorical DQN                               |
+| atom_size               | Number of atoms building the support vector used  in Categorical DQN                                                            |
+| v_min                   | Minimum expected reward (for building the support vector)                                                        |
+| v_max                   | Maximum expected reward (for building the support vector)                                  |
+| dueling                 | Whether to use dueling DQN                                   |
+| noisy                   | Whether to use noisy layers                                  |
+| use_nstep               | Whether to use N Step learning                               |
+| nsteps                  | Number of steps to use for N Step learning                   |
+| communicate             | Communication mode (0, 1, 2) 0 = no communication            |
+| use_memory              | Whether to use memory for the board                          |
+| seed                    | Random seed to use                                           |
+| gamma                   | Discount factor for rewards                                  |
+| tau                     | Soft target network update rate                                                             |
+| lr_q                    | Learning rate for Q-value                                    |
+| exploration_noise       | Exploration noise for epsilon greedy                         |
+| set_position            | Whether initial agent position is set on the board           |
+| replay_size             | Size of replay buffer (must be a power of 2 to be compatible with prioritized replay) |
+| max_steps               | Maximum number of steps for a game                           |
+| reward_func             | Which reward function to use                                 |
+| fifo_size               | Size of FIFO for step reward                                 |
+| kill_rwd                | Reward for killing an enemy                                  |
+| teamkill_rwd            | Reward for killing a teammate                                |
+| death_rwd               | Reward for dying                                             |
+| win_loss_bonus          | Reward for winning                                           |
+| step_rwd                | Reward for taking steps not in FIFO                          |
+| item_rwd                | Reward for picking up an item                                |
+| bomb_tracker            | Whether to use bomb tracker                                  |
+| memory_method           | Memory method to use                                         |
+| forgetfullness          | Percentage decrease of confidence in the memory                                                             |
+| normalize_steps         | Whether to normalize steps                                   |
 
+## Code References
+
+https://github.com/Curt-Park/rainbow-is-all-you-need (Used for Categorical DQN, Noisy Layers, Multi-Step Learning) (dqn.py, models.py, replay_buffer.py))
+
+https://github.com/KaleabTessera/DQN-Atari (Some parts of our DQN implementation are based on this)
+
+https://github.com/BorealisAI/pommerman-baseline (Action filter and some agent are taken from this) (action_prune.py, skynet_agents.py)
+
+https://nn.labml.ai/rl/dqn/replay_buffer.html (Implementation of Prioritized Replay Buffer is based on this)

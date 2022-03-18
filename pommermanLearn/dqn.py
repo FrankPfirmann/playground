@@ -1,12 +1,9 @@
-import sys
 import numpy as np
 import random
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 from torch.optim import Adam
 
-from action_prune import get_filtered_actions
 from models.pommer_q import Pommer_Q
 import params as p
 
@@ -60,7 +57,6 @@ class DQN(object):
                 valid_actions_transformed += [1] if i in valid_actions else [float("NaN")]
             valid_actions_transformed = torch.FloatTensor(valid_actions_transformed).to(self.device).unsqueeze(0)
 
-            #obs = self.q_network.get_transformer()(obs)
             obs = [torch.FloatTensor(o).to(self.device).unsqueeze(0) for o in obs]
 
             self.q_network.reset_noise()
