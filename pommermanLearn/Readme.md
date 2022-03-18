@@ -54,11 +54,10 @@ If you want to evaluate a trained model you can just run the `test_model_seperat
 | crop_fog                | Whether to crop the fog out of input                         |
 | double_q                | Whether to use double den                                    |
 | prioritized_replay      | Whether to use prioritized replay                            |
-| beta                    | Determines how replays should be weighted (beta==0 --> all weights are 1, beta==1 --> influence of replays is fully normalized) |
+| beta                    | Determines how replays should be weighted in prioritized replay |
 | device                  | Device to use with pytorch                                   |
 | run_name                | Name of the folder where logs are saved                      |
-| alpha                   |                                                              |
-| beta                    |                                                              |
+| alpha                   | Determines how strongly prioritized replay is used           |
 | categorical             | Whether to use categorical DQN                               |
 | atom_size               |                                                              |
 | v_min                   |                                                              |
