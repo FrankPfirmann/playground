@@ -11,8 +11,8 @@ Before you can run any of the training scripts, you have to install all required
 
 Before you run the actual training script, it is possible to adjust hyper parameters by changing the value of the variables listed in the `params.py`file. At the end of the Readme there is an overview of the parameters you can adjust and their meaning.
 
-To start the training of an agent you just have to run the `main.py` with:
-`python main.py`
+To start the training of an agent you just have to run the `train_dqn.py` with:
+`python train_dqn.py`
 
 After this the training will run for the specified numbers of iterations and print intermediate results of the current run.
 
