@@ -6,6 +6,7 @@ This repo contains all scripts used for training and testing agents in the Pomme
 
 Before you can run any of the training scripts, you have to install all required libraries first. Just navigate into the cloned github repo with:
  `cd playground` and execute `pip install -e .` to install the needed libraries.
+Installing`tensorboard`is also necessary.
 
 ## How to train an agent:
 

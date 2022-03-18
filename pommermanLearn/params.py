@@ -42,7 +42,7 @@ communicate = 1
 use_memory = True
 
 #dqn.py
-seed = 1
+seed = 1 # -1 for disabling setting a seed
 
 gamma = 0.99
 tau = 0.005
