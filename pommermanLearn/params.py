@@ -1,7 +1,7 @@
 from datetime import datetime
 import torch
 
-# main.py
+# train_dqn.py
 num_iterations = 500
 episodes_per_iter = 1
 gradient_steps_per_iter = 100
