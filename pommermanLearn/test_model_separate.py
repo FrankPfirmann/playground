@@ -6,6 +6,8 @@ from pommerman.agents import SimpleAgent
 from agents.skynet_agents import SmartRandomAgent, SmartRandomAgentNoBomb, StaticAgent
 from pommerman.agents.http_agent import HttpAgent
 
+import params as p
+
 episodes = 100
 render = False
 
@@ -14,8 +16,11 @@ def get_agents():
     model_dir1 = "./data/tensorboard/communicate_2/99_1" # Agent 1
     model_dir2 = "./data/tensorboard/communicate_2/99_2" # Agent 2
 
+    # Prepare own agents
     agent1 = DQNAgent(model_dir1)
     agent2 = DQNAgent(model_dir2)
+    #agent1 = HttpAgent(port=10080, host='localhost')
+    #agent2 = HttpAgent(port=10081, host='localhost')
 
     # Prepare enemy agents
     enemy1  = StaticAgent()
@@ -26,8 +31,8 @@ def get_agents():
     #enemy2  = SmartRandomAgent()
     #enemy1  = SmartRandomAgentNoBomb()
     #enemy2  = SmartRandomAgentNoBomb()
-    #enemy1 = HttpAgent(port=10080, host='localhost'),
-    #enemy2 = HttpAgent(port=10081, host='localhost'),
+    #enemy1 = HttpAgent(port=10082, host='localhost'),
+    #enemy2 = HttpAgent(port=10083, host='localhost'),
 
     if np.random.randint(2) == 0:
         return (0,[
@@ -55,7 +60,7 @@ for i in range(episodes):
     episode_reward = 0
     # run game
     idx, agent_list = get_agents()
-    env = pommerman.make('PommeRadio-v2', agent_list)
+    env = pommerman.make(p.env, agent_list)
     obs = env.reset()
     done = False
     step = 0

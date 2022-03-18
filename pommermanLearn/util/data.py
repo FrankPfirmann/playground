@@ -74,8 +74,8 @@ def create_bitmaps(board, centralized, obs, p_obs, crop_fog):
         np.isin(board, teammate_v).astype(view_type),  # 9
         np.isin(board, enemy_v1).astype(view_type),  # 10
         np.isin(board, enemy_v2).astype(view_type),  # 11
-        np.array(obs['flame_life']/3).astype(view_type),  # 12
-        np.array(obs['bomb_life']/9).astype(view_type)  # 13
+        np.array(obs['flame_life']).astype(view_type)/3,  # 12
+        np.array(obs['bomb_life']).astype(view_type)/9  # 13
     ]
     if p_obs and not crop_fog:
         #normalized count of when cell was last visited

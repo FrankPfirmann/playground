@@ -1,6 +1,10 @@
 version: "3.0"
 services:
-  agent:
-    build: .
+  agent1:
+    image: tgru/tud22-group-ad.1:latest
     ports:
       - "10080:10080"
+  agent2:
+    image: tgru/tud22-group-ad.2:latest
+    ports:
+      - "10081:10080"

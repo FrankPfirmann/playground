@@ -1,13 +1,9 @@
-import logging
-import random
-from collections import deque
-
 import params
 from action_prune import get_filtered_actions
 from pommerman import agents
 from pommerman.constants import Action
 from util.board_tracker import BoardTracker, BoardTrackerFixed
-from util.data import centralize_view, crop_view, merge_views, merge_views_life
+from util.data import centralize_view, crop_view
 import numpy as np
 import params as p
 
@@ -187,11 +183,15 @@ class TrainAgent(agents.BaseAgent):
             act = self.policy(self.obs, valid_actions)
         else:
             act = self.policy(self.transformer(obs), valid_actions)
-        act = int(act.detach().cpu().numpy()[0])
+        act = act.detach().cpu().numpy()[0]
         if self.next_msg is not None:
-            return [act, self.next_msg[0], self.next_msg[1]]
+            return [
+                int(act),
+                int(self.next_msg[0]),
+                int(self.next_msg[1])
+            ]
         else:
-            return act
+            return int(act)
 
     def _get_position_change(self, t1, t2):
         '''

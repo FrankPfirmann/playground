@@ -6,7 +6,10 @@ def main():
     """
     Inits and runs a Docker Agent
     """
-    agent = DockerAgent()
+    model_dir="./data/models/communicate_2_99_1.pth" # Agent 1
+    # model_dir="./data/models/communicate_2_99_2.pth" # Agent 2
+
+    agent = DockerAgent(model_dir)
     agent.run()
 
 
