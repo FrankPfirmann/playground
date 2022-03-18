@@ -70,7 +70,7 @@ If you want to evaluate a trained model you can just run the `test_model_seperat
 | use_memory              | Whether to use memory for the board                          |
 | seed                    | Random seed to use                                           |
 | gamma                   | Discount factor for rewards                                  |
-| tau                     |                                                              |
+| tau                     | Weights for main network and target network in each target update |
 | lr_q                    | Learning rate for Q-value                                    |
 | exploration_noise       | Exploration noise for epsilon greedy                         |
 | set_position            | Whether initial agent position is set on the board           |
@@ -86,7 +86,7 @@ If you want to evaluate a trained model you can just run the `test_model_seperat
 | item_rwd                | Reward for picking up an item                                |
 | bomb_tracker            | Whether to use bomb tracker                                  |
 | memory_method           | Memory method to use                                         |
-| forgetfullness          |                                                              |
+| forgetfullness          | Factor by which certain objects are multiplied in memory in each step|
 | normalize_steps         | Whether to normalize steps                                   |
 
 ## Code References
