@@ -10,7 +10,7 @@ episodes_per_eval = 50
 intermediate_test = 100
 centralize_planes = False
 render_tests = False
-env = 'PommeRadio-v2'  # PommeFFACompetition-v0 or OneVsOne-v0 or PommeTeamCompetition-v0
+env = 'PommeRadio-v2'  # PommeFFACompetition-v0, OneVsOne-v0. PommeTeamCompetition-v0, PommeRadio-v2, custom-v2, custom2-v2
 p_observable = True
 crop_fog = False
 
@@ -18,7 +18,6 @@ crop_fog = False
 double_q = True
 
 prioritized_replay = True
-beta = 0 # determines how replays should be weighted (beta==0 --> all weights are 1, beta==1 --> influence of replays is fully normalized)
 device = torch.device("cpu") if not torch.cuda.is_available() else torch.device("cuda")
 run_name = datetime.now().strftime("%Y%m%dT%H%M%S")
 alpha = 0.7

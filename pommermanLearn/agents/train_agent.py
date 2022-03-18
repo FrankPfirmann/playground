@@ -6,7 +6,7 @@ import params
 from action_prune import get_filtered_actions
 from pommerman import agents
 from pommerman.constants import Action
-from util.board_tracker import BoardTracker, BoardTrackerFixed
+from util.board_tracker import BoardTracker, BoardTracker
 from util.data import centralize_view, crop_view, merge_views, merge_views_life
 import numpy as np
 import params as p
@@ -76,7 +76,7 @@ class TrainAgent(agents.BaseAgent):
         self.enemy_ids = None
         # bit signaling which agents position should be transmitted
         self.transmit_first = True
-        self.memory = BoardTrackerFixed(board_size=bsize)
+        self.memory = BoardTracker(board_size=bsize)
         self.is_train = is_train # if this is true memory has to be updated in the act method instead of data_generator
         self.obs = None # save transformed observation to avoid additional centralization
         self.next_msg = None # saved message to transmit
