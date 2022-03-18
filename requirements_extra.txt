@@ -3,3 +3,4 @@ tensorflow~=1.6
 torch~=1.10.0
 jupyter~=1.0
 recommonmark~=0.3.0
+tensorboard~=1.15

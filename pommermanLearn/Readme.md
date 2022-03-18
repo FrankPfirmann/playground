@@ -1,12 +1,11 @@
 # PommermanLearn
 
-This repo contains all scripts used for training and testing agents in the Pommerman environment. It also contains many trained models + evaluation.
+This repository contains all scripts used for training and testing agents in the Pommerman environment. It also contains many trained models + evaluation.
 
-## Requirements:
+## Setup
 
-Before you can run any of the training scripts, you have to install all required libraries first. Just navigate into the cloned github repo with:
- `cd playground` and execute `pip install -e .` to install the needed libraries.
-Installing`tensorboard`is also necessary.
+Before you can run any of the training scripts, you have to install Python (3.7) and all required libraries first. Just navigate into the cloned github repository with:
+ `cd playground` and execute `pip install -e .[extras]` to install Pommerman and all additional dependencies.
 
 ## How to train an agent:
 
@@ -24,7 +23,7 @@ You can see the results of the training (also during the training) by running:
 
 Just specify the correct directory where the logs are saved, the default is `playground/pommermanLearn/data/tensorboard`, depending where you run your script from you have to adjust the path accordingly.
 
-Then you can go to `http://localhost:6006/` to see your runs
+Then you can open `http://localhost:6006/` in a browser of your choice to see your runs
 
 Currently the following values are logged during training: 
 
@@ -35,9 +34,7 @@ Currently the following values are logged during training:
 
 ## How to evaluate a model
 
-If you want to evaluate a trained model you can just run the `test_model_seperate.py` file with `python test_model_seperate.py`, located in the `pommermanLearn` directory. Before you run it, you have to specify 2 paths for each trained agent by editing the corresponding variables `model_dir1` and `model_dir2` in `test_model_seprate.py`. After running the script you will see the ratio for wins, ties and losses for the specified agents.
-
-
+If you want to evaluate a trained model you can just run the `test_model_seperate.py` file with `python test_model_seperate.py`, located in the `pommermanLearn` directory. Before you run it, you have to specify 2 paths for each trained agent by editing the corresponding variables `model_dir1` and `model_dir2` in `test_model_seprate.py`. Furthermore the configuration in `params.py` must match the configuration used during training. After running the script you will see the ratio for wins, ties and losses for the specified agents.
 
 ## Table with all hyperparameters and their meaning
 
