@@ -95,4 +95,6 @@ https://github.com/Curt-Park/rainbow-is-all-you-need (Used for Categorical DQN, 
 
 https://github.com/KaleabTessera/DQN-Atari (Some parts of our DQN implementation are based on this)
 
-https://github.com/BorealisAI/pommerman-baseline (Action filter)
+https://github.com/BorealisAI/pommerman-baseline (Action filter and some agent are taken from this) (action_prune.py, skynet_agents.py)
+
+https://nn.labml.ai/rl/dqn/replay_buffer.html (Implementation of Prioritized Replay Buffer is based on this)
