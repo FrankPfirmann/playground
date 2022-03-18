@@ -93,4 +93,4 @@ If you want to evaluate a trained model you can just run the `test_model_seperat
 ## Code References
 
 https://github.com/Curt-Park/rainbow-is-all-you-need (Used for Categorical DQN, Noisy Layers, Multi-Step Learning) (dqn.py, models.py, replay_buffer.py))
-
+https://github.com/KaleabTessera/DQN-Atari (Some parts of our DQN implementation are based on this)
