@@ -105,22 +105,33 @@ def skynet_reward(obs, act, nobs, fifo, agent_inds, log, done, bomb_tracker):
         cur_position = nobs[i]['position']
         killed = False
         died = False
-        if len(dead_enemies) > 0:
-            for enemy in dead_enemies:
-                tracker_items = bomb_tracker.get_killers(obs, nobs)
-                for kill in tracker_items:
-                    if kill['killed_agent'] + 10 not in nobs[i]['alive'] and i in kill['killers']:
-                        if kill['killed_agent'] + 10 == obs[i]['teammate'].value:
-                            teammate_rwd = p.teamkill_rwd
-                            r[i] += teammate_rwd
-                            logging.info(f"Teamkill by agent {i} rewarded with {teammate_rwd}")
-                            log[log_ind][0] += teammate_rwd
-                        else:
-                            kill_rwd = p.kill_rwd
-                            killed = True
-                            r[i] += kill_rwd
-                            logging.info(f"Kill by agent {i} rewarded with {kill_rwd}")
-                            log[log_ind][0] += kill_rwd
+        tracker_items = bomb_tracker.get_killers(obs, nobs)
+        if p.bomb_tracker:
+            for kill in tracker_items:
+                if kill['killed_agent'] + 10 not in nobs[i]['alive'] and i in kill['killers']:
+                    if kill['killed_agent'] + 10 == obs[i]['teammate'].value:
+                        teammate_rwd = p.teamkill_rwd
+                        r[i] += teammate_rwd
+                        logging.info(f"Teamkill by agent {i} rewarded with {teammate_rwd}")
+                        log[log_ind][0] += teammate_rwd
+                    elif not kill['killed_agent'] + 10 == own_id:
+                        kill_rwd = p.kill_rwd
+                        killed = True
+                        r[i] += kill_rwd
+                        logging.info(f"Kill by agent {i} rewarded with {kill_rwd}")
+                        log[log_ind][0] += kill_rwd
+        else:
+            if len(dead_enemies) > 0:
+                kill_rwd = p.kill_rwd
+                killed = True
+                r[i] += kill_rwd * len(dead_enemies)
+                logging.info(f"Kill rewarded with {kill_rwd} for agent {i}")
+                log[log_ind][0] += kill_rwd
+            if prev_n_teammate > cur_n_teammate:
+                teammate_rwd = p.teamkill_rwd
+                r[i] += teammate_rwd
+                logging.info(f"Teammate of agent {i} died and was rewarded with {teammate_rwd}")
+                log[log_ind][4] += teammate_rwd
 
         if own_id in obs[i]['alive'] and own_id not in nobs[i]['alive']:
             died = True

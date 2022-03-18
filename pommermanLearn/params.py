@@ -65,6 +65,7 @@ death_rwd = -0.5
 win_loss_bonus = 0.5
 step_rwd = 0.001
 item_rwd = 0.03
+bomb_tracker=True
 
 #models.py
 memory_method = 'forgetting' # one of 'counting', 'forgetting'
