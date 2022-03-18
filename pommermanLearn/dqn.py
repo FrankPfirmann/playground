@@ -7,7 +7,7 @@ import torch.nn.functional as F
 from torch.optim import Adam
 
 from action_prune import get_filtered_actions
-from models import Pommer_Q
+from models.pommer_q import Pommer_Q
 import params as p
 
 

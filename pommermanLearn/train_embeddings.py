@@ -10,8 +10,8 @@ import matplotlib.pyplot as plt
 import pommerman as pm
 from pommerman.agents.simple_agent import SimpleAgent
 
-from embeddings import PommerLinearAutoencoder
-from embeddings import PommerConvAutoencoder
+from models.pommer_linear_autoencoder import PommerLinearAutoencoder
+from models.pommer_conv_autoencoder import PommerConvAutoencoder
 from util.data import transform_observation
 
 # General

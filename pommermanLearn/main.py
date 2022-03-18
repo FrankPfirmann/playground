@@ -7,7 +7,6 @@ os.environ['KMP_DUPLICATE_LIB_OK']='True'
 import argparse
 import logging
 import random
-from datetime import datetime
 import os
 import sys
 import torch
@@ -19,11 +18,11 @@ import params as p
 from data_augmentation import DataAugmentor_v1
 from data_generator import DataGeneratorPommerman
 from dqn import DQN
-from models import Pommer_Q
-from models import PommerQEmbeddingMLP
-from models import PommerQEmbeddingRNN
-from embeddings import PommerLinearAutoencoder
-from embeddings import PommerConvAutoencoder
+from models.pommer_q import Pommer_Q
+from models.pommer_q_embedding_mlp import PommerQEmbeddingMLP
+from models.pommer_q_embedding_rnn import PommerQEmbeddingRNN
+from models.pommer_linear_autoencoder import PommerLinearAutoencoder
+from models.pommer_conv_autoencoder import PommerConvAutoencoder
 from util.analytics import Stopwatch
 from util.data import transform_observation_simple, transform_observation_partial, transform_observation_centralized, transform_observation_partial_uncropped
 

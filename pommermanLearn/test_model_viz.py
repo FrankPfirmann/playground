@@ -1,18 +1,8 @@
-from datetime import datetime
-import os
-import sys
-import gym
 import torch
-from torch.utils.tensorboard import SummaryWriter
-import numpy as np
-import params as p
 
-from models import DQN_Q, Pommer_Q
-from data_generator import DataGeneratorGymDiscrete, DataGeneratorPommerman
+from data_generator import DataGeneratorPommerman
 from dqn import DQN
-
-
-
+from models.pommer_q import Pommer_Q
 
 num_its = 10
 episodes_per_iter = 10

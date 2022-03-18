@@ -1,7 +1,7 @@
 import torch
 from pommerman.agents import BaseAgent
 from agents.train_agent import TrainAgent
-from models import Pommer_Q
+from models.pommer_q import Pommer_Q
 from dqn import DQN
 from util.data import transform_observation_partial, transform_observation_partial_uncropped
 import params as p
