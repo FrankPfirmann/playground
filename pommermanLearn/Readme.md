@@ -60,9 +60,9 @@ If you want to evaluate a trained model you can just run the `test_model_seperat
 | alpha                   |                                                              |
 | beta                    |                                                              |
 | categorical             | Whether to use categorical DQN                               |
-| atom_size               |                                                              |
-| v_min                   |                                                              |
-| v_max                   |                                                              |
+| atom_size               | Number of atoms building the support vector used  in Categorical DQN                                                            |
+| v_min                   | Minimum expected reward (for building the support vector)                                                        |
+| v_max                   | Maximum expected reward (for building the support vector)                                  |
 | dueling                 | Whether to use dueling DQN                                   |
 | noisy                   | Whether to use noisy layers                                  |
 | use_nstep               | Whether to use N Step learning                               |
@@ -71,7 +71,7 @@ If you want to evaluate a trained model you can just run the `test_model_seperat
 | use_memory              | Whether to use memory for the board                          |
 | seed                    | Random seed to use                                           |
 | gamma                   | Discount factor for rewards                                  |
-| tau                     |                                                              |
+| tau                     | Soft target network update rate                                                             |
 | lr_q                    | Learning rate for Q-value                                    |
 | exploration_noise       | Exploration noise for epsilon greedy                         |
 | set_position            | Whether initial agent position is set on the board           |
@@ -87,6 +87,6 @@ If you want to evaluate a trained model you can just run the `test_model_seperat
 | item_rwd                | Reward for picking up an item                                |
 | bomb_tracker            | Whether to use bomb tracker                                  |
 | memory_method           | Memory method to use                                         |
-| forgetfullness          |                                                              |
+| forgetfullness          | Percentage decrease of confidence in the memory                                                             |
 | normalize_steps         | Whether to normalize steps                                   |
 
